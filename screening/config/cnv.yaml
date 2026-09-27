@@ -1,0 +1,59 @@
+# scRNA-seq → 缺失区间基因 工作流配置
+# 说明见 docs/cnv_workflow.md。所有路径相对于 pipeline 根目录。
+
+project: GSE283473
+
+samples:
+  - id: CTRL1
+    group: reference
+    raw_dir: data/scrna/GSE283473
+    raw_prefix: GSM8663068_CTRL1
+    path: data/scrna/GSE283473/CTRL1
+  - id: WS1
+    group: patient
+    raw_dir: data/scrna/GSE283473
+    raw_prefix: GSM8663071_WS1
+    path: data/scrna/GSE283473/WS1
+
+annotation:
+  gtf: data/gencode.v44.basic.annotation.gtf.gz
+  gene_order_tsv: data/gencode_v44_gene_order.tsv
+  genome_build: GRCh38   # 10x matrix 的比对版本未注明；与临床区间坐标必须一致
+
+qc:
+  min_genes_per_cell: 200
+  max_mito_pct: 20.0
+  downsample_per_sample: 8000   # null = 全量；验证跑建议降采样
+  seed: 0
+
+infercnv:
+  reference_group: reference
+  patient_group: patient
+  exclude_chromosomes: [chrX, chrY]   # 性染色体剂量伪差；自动发现排除，已知区间提取不受影响
+  # 分辨率阶梯：standard 全基因组稳定；fine 针对 1–3 Mb 微缺失但噪声更大
+  resolutions:
+    - {name: standard, window_size: 100, step: 10}
+    - {name: fine,     window_size: 25,  step: 5}
+
+segments:
+  z_threshold: 1.5      # robust z（median/MAD），越保守越大
+  min_windows: 3
+  max_segment_mb: 10    # 大于此的"片段"多为着丝粒/低可比对区伪影，非微缺失
+
+known_intervals:
+  williams_7q11.23:
+    chr: chr7
+    start: 72700000
+    end: 74800000   # 首轮验证修正：GTF2I 位于 74.65–74.76Mb（GENCODE v44），原 74.4Mb 终点会漏掉它
+    genome_build: GRCh38
+    markers: [ELN, GTF2I, LIMK1, CLIP2]
+    note: "Classic WBS ~1.55 Mb deletion, approximate GRCh38 coordinates; verify against DECIPHER/ClinGen before production use"
+
+extract:
+  include_auto_in_candidates: false   # candidates.csv 默认只含已知区间；自动片段基因见 auto_segment_genes.csv
+
+validation:
+  min_overlap_frac: 0.5   # AC-CNV-1：自动片段覆盖已知区间的最低比例
+
+output:
+  dir: outputs/cnv

@@ -1,0 +1,114 @@
+clinGen:
+  use_score: haploinsufficiency
+  weight_hi: 3
+compensation:
+  enabled: false
+  thresholds:
+    full:
+    - 0.95
+    - 1.05
+    partial_high:
+    - 0.85
+    - 0.95
+    partial_low:
+    - 0.7
+    - 0.85
+    uncompensated:
+    - 0.4
+    - 0.7
+consensus:
+  base_weights:
+    DeepGenePrior_score: 2
+    DeepLOF_score: 3
+    DosaCNV_score: 3
+    clinGen_hi_score: 3
+    gnomad_LOEUF: 2
+    gnomad_pLI: 2
+    negative_hpa_organ: -2
+  missing_handling: neutral
+  ranking_method: weighted_vote
+consensus_v2:
+  borda:
+    enabled: true
+    missing: median
+  evidence:
+    DeepGenePrior_score:
+      direction: higher_better
+      weight: 1
+    DeepLOF_score:
+      direction: higher_better
+      weight: 1
+    DosaCNV_score:
+      direction: higher_better
+      weight: 1
+    clinGen_hi_score:
+      direction: ordinal
+      low_score_penalty: 0.0
+      ordinal_scale: 3
+      weight: 3
+    gnomad_LOEUF:
+      direction: lower_better
+      weight: 2
+    gnomad_pLI:
+      direction: higher_better
+      weight: 2
+  hpa_penalty:
+    _comment: "v2.1: HPA no longer penalizes ranking; targeting feasibility and safety are shown in evidence panels (see evidence.panel)"
+    cap: 0.0
+    expr_threshold: 9999.0
+    organs:
+    - brain
+    - liver
+    - kidney
+    - gastrointestinal
+    per_organ_weight: 0.0
+  normalize: raw
+  tuning:
+    enabled: false
+    positive_controls:
+    - TBX1
+    - ELN
+    - KCTD13
+    - RAI1
+    - GTF2I
+    target_top_n: 10
+    weight_grid:
+    - 0
+    - 1
+    - 2
+    - 3
+experiments:
+  enabled: true
+external:
+  api_endpoints: {}
+  cache_dir: .cache/
+gene_constraints:
+  LOEUF_upper: 0.35
+  pLI_threshold: 0.9
+  use_LOEUF_v4: false  # current snapshot is v2.1.1; this flag does not upgrade data
+hpa_filter:
+  organ_tissues:
+    brain: [amygdala, basal ganglia, cerebellum, cerebral cortex, choroid plexus, hippocampal formation, hypothalamus, midbrain, pons, medulla oblongata, spinal cord, thalamus]
+    gastrointestinal: [appendix, colon, duodenum, esophagus, rectum, small intestine, stomach]
+  high_expression_log: 1.0
+  negative_expr_threshold: 4.0
+  organs:
+  - liver
+  - brain
+  - kidney
+  - gastrointestinal
+pipeline_mode: auto
+# WHS is the first intended disease; phenotype-to-tissue mappings await confirmation.
+# Panels annotate all candidates in this run and never change scores or ranks.
+phenotype_panels: []
+recessive:
+  gnomad_weight_multiplier: 1.0  # annotation only; <1 is an unvalidated, opt-in heuristic
+sensitivity:
+  enabled: false
+validation:
+  # Maximum fraction of candidates with no usable positively weighted evidence.
+  max_missing_rate: 0.5
+  require_unique_hgnc: true
+warnings:
+  max_genes_for_single_driver: 20
+  min_clingen_coverage: 0.2

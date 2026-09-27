@@ -1,0 +1,11 @@
+name: virtual-screening
+channels:
+  - conda-forge
+  - nodefaults
+dependencies:
+  - python=3.11
+  - pip
+  - pip:
+      - -r requirements.txt
+variables:
+  PYTHONUTF8: "1"

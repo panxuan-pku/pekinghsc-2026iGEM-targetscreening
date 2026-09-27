@@ -1,0 +1,1095 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>VirtualCellTool — 虚拟细胞扰动模拟</title>
+<link rel="icon" href="data:,">
+<script src="/web/plotly.min.js"></script>
+<style>
+  :root{
+    --red:#CC0000; --blue:#0052A0; --green:#2E7D32; --orange:#CC6600;
+    --bg:#eef1f5; --card:#fff; --line:#e6e9ef; --txt:#222; --mut:#7a8291;
+  }
+  *{box-sizing:border-box}
+  body{font-family:-apple-system,"PingFang SC",sans-serif;margin:0;background:var(--bg);color:var(--txt);
+       height:100vh;display:flex;flex-direction:column;overflow:hidden}
+
+  /* ── 顶栏 ── */
+  #top{display:flex;align-items:center;gap:12px;padding:8px 14px;background:var(--card);
+       border-bottom:1px solid var(--line);flex:none}
+  #top h1{font-size:16px;color:var(--red);margin:0;white-space:nowrap}
+  #top .tag{font-size:11px;color:var(--mut);background:#f3f5f9;border-radius:10px;padding:2px 8px}
+  #dsSel{font-size:12px;padding:5px 8px;border:1px solid var(--line);border-radius:6px;background:#fff}
+  #dsState{font-size:12px;color:var(--mut)}
+  #historyBtn{width:auto;flex:none;background:#334155;font-size:12px}
+
+  /* ── 主体：左控制栏 + 右工作区 ── */
+  #main{flex:1;display:flex;min-height:0}
+  #panel{width:330px;flex:none;overflow-y:auto;padding:10px;border-right:1px solid var(--line)}
+  #work{flex:1;min-width:0;display:flex;flex-direction:column;padding:10px;gap:10px;overflow:hidden}
+
+  .card{background:var(--card);border-radius:10px;box-shadow:0 1px 3px rgba(0,0,0,.07);padding:12px;margin-bottom:10px}
+  .card h2{font-size:12px;color:#333;margin:0 0 8px;border-left:3px solid var(--red);padding-left:8px;
+           display:flex;justify-content:space-between;align-items:center}
+  .hint{font-size:11px;color:var(--mut);line-height:1.6;margin-top:4px}
+
+  button{width:100%;padding:9px;background:var(--red);color:#fff;border:none;border-radius:6px;
+         font-size:13px;cursor:pointer;transition:opacity .15s}
+  button:hover:not(:disabled){opacity:.88}
+  button:disabled{background:#ccd2db;cursor:not-allowed}
+  .row{display:flex;gap:6px}
+  .row button{flex:1}
+
+  input[type=text],input[type=number],select{width:100%;padding:6px 8px;border:1px solid var(--line);
+        border-radius:6px;font-size:13px;background:#fff}
+  input[type=range]{width:100%}
+  label{font-size:12px;font-weight:600;display:block;margin:9px 0 4px;color:#444}
+  .val{font-size:18px;font-weight:700;color:var(--blue)}
+
+  #attrTable{font-size:12px;width:100%;border-collapse:collapse;margin-top:4px}
+  #attrTable td,#attrTable th{border-bottom:1px solid #f0f2f6;padding:4px;text-align:left}
+  #attrTable th{color:var(--mut);font-weight:600;font-size:11px}
+  .geneRow{cursor:pointer}
+  .geneRow:hover{background:#fff5f5}
+  .geneRow.on{background:#ffecec;font-weight:600}
+
+  /* ── 标签页（修复"图表被覆盖"）── */
+  #tabs{display:flex;gap:4px;flex:none;flex-wrap:wrap}
+  .tab{padding:6px 14px;font-size:12px;background:#e3e7ee;color:#555;border-radius:7px 7px 0 0;
+       cursor:pointer;border:none;width:auto;white-space:nowrap}
+  .tab.on{background:var(--card);color:var(--red);font-weight:700;box-shadow:0 -1px 3px rgba(0,0,0,.06)}
+  .tab .x{margin-left:6px;color:#aaa;font-weight:400}
+  .tab .x:hover{color:var(--red)}
+  #views{flex:1;position:relative;background:var(--card);border-radius:0 10px 10px 10px;
+         box-shadow:0 1px 3px rgba(0,0,0,.07);min-height:0;overflow:hidden}
+  .view{position:absolute;inset:0;display:none;overflow:auto;padding:6px}
+  .view.on{display:block}
+  .plotbox{width:100%;height:100%;min-height:380px}
+
+  #status{flex:none;font-size:12px;color:#444;background:var(--card);border-radius:8px;padding:8px 12px;
+          box-shadow:0 1px 3px rgba(0,0,0,.07);line-height:1.7;white-space:pre-wrap;max-height:130px;overflow:auto}
+  .stat{display:inline-block;margin-right:14px}
+  .warn{color:var(--red)}
+  .ok{color:var(--green)}
+
+  @media (max-width:860px){
+    #top{flex-wrap:wrap}
+    #main{flex-direction:column}
+    #panel{width:100%;max-height:44vh;border-right:none;border-bottom:1px solid var(--line)}
+  }
+</style>
+</head>
+<body>
+
+<div id="top">
+  <h1>🧬 VirtualCellTool</h1>
+  <span class="tag" id="verTag">v3.3</span>
+  <select id="dsSel">
+    <option value="pbmc">PBMC 2700（免疫细胞）</option>
+    <option value="ms">MS 少突胶质细胞</option>
+    <option value="ws">Williams 脑类器官</option>
+  </select>
+  <span id="dsState">加载中…</span>
+  <button id="historyBtn">历史实验与方法迭代</button>
+</div>
+
+<div id="main">
+  <!-- ══ 左：控制栏 ══ -->
+  <div id="panel">
+    <div class="card" id="colorModeCard" style="display:none">
+      <h2>🎨 着色模式</h2>
+      <div class="row">
+        <button id="btnGroup" style="background:var(--blue)">病健分组</button>
+        <button id="btnCluster" style="background:#aab1bd">计算簇</button>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>① 选细胞</h2>
+      <div id="cellInfo" style="font-size:12px;color:var(--blue)">点击右侧 UMAP 上任意一点</div>
+      <h2 style="margin-top:12px">② Attribution Top 基因</h2>
+      <table id="attrTable"><tr><td style="color:#aaa;font-size:11px">选择细胞后自动计算</td></tr></table>
+      <button id="attrFigBtn" disabled style="margin-top:8px;background:#5E35B1"
+              title="把归因结果画成图：归因强度 + 该细胞与全体的表达对比">📊 归因结果出图</button>
+    </div>
+
+    <div class="card">
+      <h2>③ 选基因</h2>
+      <input type="text" id="geneFilter" placeholder="搜索全部 28231 个基因，如 MS4A1">
+      <select id="geneSel" size="6" style="height:116px;margin-top:5px"></select>
+      <button id="exprMapBtn" disabled style="margin-top:6px;background:#00796B"
+              title="把 UMAP 按该基因的表达量着色，看它在哪些细胞里表达">🎨 看表达分布</button>
+      <div class="hint" id="geneHint">—</div>
+    </div>
+
+    <div class="card">
+      <h2>④ CIPHER 扰动预测 <span style="font-size:10px;color:var(--mut);font-weight:400">秒级</span></h2>
+      <div class="row">
+        <button id="cipherKoBtn" disabled style="background:var(--green)">📉 敲低</button>
+        <button id="cipherOeBtn" disabled style="background:var(--orange)">📈 过表达</button>
+      </div>
+      <button id="baselineBtn" disabled style="margin-top:6px;background:#6b7280">📏 对比线性基线</button>
+      <div class="hint" id="cipherHint">—</div>
+    </div>
+
+    <details class="card" id="encoderExploration">
+      <summary style="cursor:pointer;font-weight:600">⑤ 编码器敏感性探索 <span class="hint">（实验性）</span></summary>
+      <div class="hint" style="margin:8px 0">保留早期反事实探索：只修改指定基因的输入并重新编码，其他基因输入保持不变。位移和最近参考质心变化不代表真实细胞响应、细胞类型转化、主效基因或治疗效果。</div>
+      <button id="historyFromEncoder" style="background:#334155;font-size:12px">查看历史证据与定位变化（只读）</button>
+      <label>目标表达量: <span class="val" id="valShow">0</span></label>
+      <input type="range" id="exprSlider" min="0" max="10" step="0.1" value="0">
+      <button id="goBtn" disabled style="margin-top:6px">🔬 查看单基因编码位移</button>
+      <div style="display:flex;gap:6px;align-items:center;margin:8px 0 4px">
+        <span style="font-size:11px;color:var(--mut)">联合目标值</span>
+        <input type="number" id="multiValue" value="0" step="0.5" min="0" max="10" style="width:60px;padding:4px">
+      </div>
+      <div class="row">
+        <button class="multiBtn" data-n="1" disabled style="background:#555">Top1</button>
+        <button class="multiBtn" data-n="3" disabled style="background:#555">Top3</button>
+        <button class="multiBtn" data-n="5" disabled style="background:#555">Top5</button>
+      </div>
+    </details>
+
+    <div class="card">
+      <h2>⑥ GEARS 因果（负对照）</h2>
+      <button id="causalBtn" disabled style="background:var(--blue)">🧪 因果预测</button>
+      <div class="hint" id="causalHint">GEARS 仅覆盖 Norman Perturb-seq 训练图内的 3127 个基因，在本项目中作为<b>负对照</b>展示覆盖性局限。</div>
+    </div>
+  </div>
+
+  <!-- ══ 右：工作区（标签页图表）══ -->
+  <div id="work">
+    <div id="tabs"></div>
+    <div id="views"></div>
+    <div id="status">就绪。选择细胞 → 选基因 → 点 CIPHER 敲低。</div>
+  </div>
+</div>
+
+<script>
+/* ══════════════════════════════════════════════════════
+   VirtualCellTool v3.3 前端
+   修复要点：
+   1. 所有 fetch 统一带 ds 参数（旧版丢参数 → 切数据集后仍打默认库）
+   2. 切数据集不再整页跳转，改为原地重载（保留页面状态）
+   3. 图表移到右侧大工作区，用标签页承载，新结果不再覆盖旧结果
+   4. 图表容器静态管理，不再运行时 createElement 插入侧栏
+   ══════════════════════════════════════════════════════ */
+
+let DATA = null, DS = "pbmc", selectedCell = null, currentTop = [];
+let requestId = 0, selectionVersion = 0, umapReady = false;
+const requests = new Map();
+let colorMode = "group", PLOT_TYPE = "scattergl";
+const COLORS = {"T cell":"#4C78A8","B cell":"#E45756","NK cell":"#72B7B2","Monocyte":"#F58518",
+  "Dendritic":"#54A24B","Platelet":"#B279A2","MS":"#CC0000","normal":"#4C78A8","WS":"#CC0000","CTRL":"#4C78A8"};
+const CLUSTER_COLORS = ["#4C78A8","#E45756","#72B7B2","#F58518","#54A24B","#B279A2","#EECA3B","#9D755D",
+  "#BAB0AC","#D37295","#FABFD2","#8C6D8C","#5AA9A2","#3C6E9F","#C44E4D","#D97A2B"];
+
+const $ = id => document.getElementById(id);
+const setStatus = html => { $("status").innerHTML = html; };
+
+function openHistory() {
+  openTab("history", "历史实验与方法迭代", boxId => {
+    const box = $(boxId);
+    box.innerHTML = "";
+    const frame = document.createElement("iframe");
+    frame.src = "/web/history.html";  // 档案有自己的来源，不传当前 DS/细胞/基因。
+    frame.title = "历史实验与方法迭代（只读）";
+    frame.style = "width:100%;height:100%;border:0;display:block";
+    box.appendChild(frame);
+  });
+}
+$("historyBtn").onclick = openHistory;
+$("historyFromEncoder").onclick = openHistory;
+
+// 同一类请求只接受最新结果；数据集/选择变更后，旧成功和旧错误都失效。
+function requestContext(key, trackSelection = true) {
+  const id = ++requestId, data = DATA, version = selectionVersion;
+  requests.set(key, id);
+  return { ds: DS, data, cell: selectedCell,
+    current: () => requests.get(key) === id && DATA === data &&
+      (!trackSelection || selectionVersion === version) };
+}
+
+/* ── 统一 API：自动带上当前数据集 ── */
+async function api(path, params = {}) {
+  const q = new URLSearchParams({ ds: DS, ...params });
+  const resp = await fetch(`/api/${path}?${q}`);
+  const body = await resp.json().catch(() => ({ error: "响应解析失败" }));
+  const detail = Array.isArray(body.detail)
+    ? body.detail.map(e => `${e.loc.slice(1).join(".")}: ${e.msg}`).join("；") : body.detail;
+  if (!resp.ok) throw Object.assign(new Error(body.error || detail || `HTTP ${resp.status}`), { body });
+  return body;
+}
+
+/* ══ 标签页系统（解决"新图覆盖旧图"）══ */
+const TABS = [];
+function openTab(key, title, renderFn) {
+  let t = TABS.find(t => t.key === key);
+  if (!t) {
+    const btn = document.createElement("button");
+    btn.className = "tab";
+    btn.innerHTML = `<span>${title}</span><span class="x" title="关闭">✕</span>`;
+    btn.querySelector("span").onclick = () => activateTab(key);
+    btn.onclick = e => { if (!e.target.classList.contains("x")) activateTab(key); };
+    btn.querySelector(".x").onclick = e => { e.stopPropagation(); closeTab(key); };
+    $("tabs").appendChild(btn);
+
+    const view = document.createElement("div");
+    view.className = "view";
+    const box = document.createElement("div");
+    box.className = "plotbox";
+    box.id = `plot_${key}`;
+    view.appendChild(box);
+    $("views").appendChild(view);
+
+    t = { key, btn, view, box };
+    TABS.push(t);
+  } else {
+    t.btn.querySelector("span").textContent = title;
+  }
+  activateTab(key);
+  renderFn(t.box.id);
+  return t;
+}
+function activateTab(key) {
+  TABS.forEach(t => {
+    const on = t.key === key;
+    t.btn.classList.toggle("on", on);
+    t.view.classList.toggle("on", on);
+    if (on) setTimeout(() => { try { Plotly.Plots.resize(t.box); } catch (e) {} }, 30);
+  });
+}
+function closeTab(key) {
+  const i = TABS.findIndex(t => t.key === key);
+  if (i < 0 || TABS[i].key === "umap") return;   // UMAP 主图不可关
+  try { Plotly.purge(TABS[i].box); } catch (e) {}
+  TABS[i].btn.remove(); TABS[i].view.remove();
+  TABS.splice(i, 1);
+  if (TABS.length) activateTab(TABS[Math.max(0, i - 1)].key);
+}
+
+/* ══ UMAP 主图 ══ */
+function buildTraces() {
+  const useCluster = colorMode === "cluster" && DATA.clusters;
+  const keyArr = useCluster ? DATA.clusters : DATA.cell_types;
+  const names = useCluster ? [...new Set(DATA.clusters)].sort((a, b) => +a - +b)
+                           : [...new Set(DATA.cell_types)];
+  return names.map(t => {
+    const idx = [];
+    keyArr.forEach((c, i) => { if (c === t) idx.push(i); });
+    return {
+      x: idx.map(i => DATA.umap[i][0]), y: idx.map(i => DATA.umap[i][1]),
+      customdata: idx, mode: "markers", type: PLOT_TYPE,
+      name: useCluster ? ("簇 " + t) : t,
+      hovertemplate: `%{fullData.name}<br>细胞 #%{customdata}<extra></extra>`,
+      marker: {
+        size: useCluster ? 3 : 2.8,
+        color: useCluster ? CLUSTER_COLORS[(+t) % CLUSTER_COLORS.length] : (COLORS[t] || "#999"),
+        opacity: .55,
+      },
+    };
+  });
+}
+function drawUmap() {
+  if (!DATA) return;
+  const ctx = requestContext("umap", false);
+  umapReady = false;
+  openTab("umap", "🗺️ UMAP 细胞图谱", boxId => {
+    Plotly.react(boxId, buildTraces(), {
+      margin: { t: 28, r: 14, b: 40, l: 46 },
+      legend: { font: { size: 11 }, itemsizing: "constant" },
+      xaxis: { title: "UMAP-1" }, yaxis: { title: "UMAP-2" },
+      title: { text: DATA.dataset || "", font: { size: 12 } },
+    }, { responsive: true }).then(() => {
+      if (!ctx.current()) return;
+      umapReady = true;
+      const el = $(boxId);
+      if (!el.__bound) {
+        el.__bound = true;
+        el.on("plotly_click", ev => {
+          if (!DATA || !umapReady) return;
+          const p = ev.points[0];
+          // customdata 直接给出原始细胞索引，无需再做最近邻搜索
+          selectCell(p.customdata !== undefined ? p.customdata : nearestCell(p.x, p.y));
+        });
+      }
+      // WebGL 空白检测 → 降级 SVG
+      if (PLOT_TYPE === "scattergl") setTimeout(() => {
+        if (!ctx.current()) return;
+        if (!glDrawn(boxId)) { PLOT_TYPE = "scatter"; drawUmap(); }
+      }, 1200);
+    });
+  });
+}
+function nearestCell(x, y) {
+  let best = -1, bd = 1e9;
+  DATA.umap.forEach((xy, i) => { const d = (xy[0]-x)**2 + (xy[1]-y)**2; if (d < bd) { bd = d; best = i; } });
+  return best;
+}
+function glDrawn(boxId) {
+  const cv = document.querySelector(`#${boxId} .gl-canvas-context`);
+  if (!cv) return false;
+  try {
+    const gl = cv.getContext("webgl2") || cv.getContext("webgl");
+    if (!gl) return false;
+    const px = new Uint8Array(4 * 256), w = cv.width, h = cv.height;
+    for (let y = 0; y < h; y += Math.max(1, h >> 8)) {
+      gl.readPixels(0, y, Math.min(256, w), 1, gl.RGBA, gl.UNSIGNED_BYTE, px);
+      for (let i = 3; i < px.length; i += 4) if (px[i] > 0) return true;
+    }
+  } catch (e) { return false; }
+  return false;
+}
+
+/* ══ 数据集加载 / 切换（原地重载，不跳转）══ */
+async function loadDataset(ds) {
+  requests.clear();
+  DATA = null; umapReady = false;
+  DS = ds;
+  const ctx = requestContext("dataset", false);
+  ["geneSel", "geneFilter", "exprSlider"].forEach(id => $(id).disabled = true);
+  $("dsSel").value = ds;
+  $("dsState").textContent = "加载数据集中…（首次加载大数据集需 10–60s）";
+  history.replaceState(null, "", `/?ds=${ds}`);
+  resetSelection();
+  setStatus("");
+  try {
+    const result = await api("data", { ds });
+    if (!ctx.current()) return;
+    DATA = result;
+  } catch (e) {
+    if (!ctx.current()) return;
+    $("dsState").innerHTML = `<span class="warn">加载失败: ${e.message}</span>`;
+    return;
+  }
+  $("dsState").innerHTML = `<span class="ok">✓ ${DATA.dataset} · ${DATA.n_cells.toLocaleString()} 细胞</span>`;
+  $("colorModeCard").style.display = DATA.clusters ? "" : "none";
+  $("btnGroup").textContent = DATA.group_label || "细胞类型";
+  $("geneSel").disabled = $("geneFilter").disabled = false;
+  $("geneFilter").value = "";
+  fillGenes(DATA.genes);
+  drawUmap();
+  onGeneChange();
+}
+function resetSelection() {
+  selectionVersion++;
+  selectedCell = null; currentTop = [];
+  $("cellInfo").textContent = "点击右侧 UMAP 上任意一点";
+  $("attrTable").innerHTML = `<tr><td style="color:#aaa;font-size:11px">选择细胞后自动计算</td></tr>`;
+  ["goBtn", "causalBtn", "cipherKoBtn", "cipherOeBtn", "baselineBtn",
+   "exprMapBtn", "attrFigBtn"].forEach(id => $(id).disabled = true);
+  $("cipherHint").textContent = $("causalHint").textContent = "等待当前选择的覆盖性检查";
+  document.querySelectorAll(".multiBtn").forEach(b => b.disabled = true);
+}
+
+/* ══ 基因列表 ══ */
+function fillGenes(list) {
+  const sel = $("geneSel");
+  sel.innerHTML = "";
+  list.forEach(g => { const o = document.createElement("option"); o.value = o.text = g; sel.appendChild(o); });
+}
+
+/* ══ 选细胞 → 归因 ══ */
+async function selectCell(i) {
+  if (!DATA || !Number.isInteger(i) || i < 0 || i >= DATA.n_cells) return;
+  resetSelection();
+  selectedCell = i;
+  $("exprSlider").disabled = true;
+  const ctx = requestContext("cell", false);
+  $("cellInfo").textContent = `细胞 #${i} — 计算 attribution…`;
+  try {
+    const r = await api("attribute", { cell: i, k: 8 });
+    if (!ctx.current()) return;
+    currentTop = r.top_genes.map(t => t.gene);
+    $("cellInfo").innerHTML = `细胞 <b>#${i}</b>（${r.cell_type}）<span class="ok">✓ ${r.elapsed}s</span>`;
+    $("attrTable").innerHTML =
+      "<tr><th>基因</th><th>归因</th><th>表达</th></tr>" +
+      r.top_genes.map(t => {
+        const c = t.attribution >= 0 ? "#2E7D32" : "#CC0000";
+        const s = t.attribution >= 0 ? "+" + t.attribution : t.attribution;
+        return `<tr class="geneRow" data-gene="${t.gene}"><td style="color:var(--blue);font-weight:600">${t.gene}</td>` +
+               `<td style="color:${c};font-weight:600">${s}</td><td>${t.expr}</td></tr>`;
+      }).join("");
+    document.querySelectorAll(".geneRow").forEach(row => {
+      row.onclick = () => {
+        document.querySelectorAll(".geneRow").forEach(r2 => r2.classList.remove("on"));
+        row.classList.add("on");
+        pickGene(row.dataset.gene);
+      };
+    });
+    $("attrFigBtn").disabled = false;
+    document.querySelectorAll(".multiBtn").forEach(b => b.disabled = false);
+    onGeneChange();
+  } catch (e) {
+    if (!ctx.current()) return;
+    $("cellInfo").innerHTML = `<span class="warn">归因失败: ${e.message}</span>`;
+  }
+}
+
+/* ══ 选基因 → 同步滑块 + 覆盖性检查 ══ */
+async function pickGene(g) {
+  if (!DATA) return;
+  requests.delete("search");
+  const sel = $("geneSel");
+  $("geneFilter").value = "";
+  fillGenes(DATA.genes);
+  if (![...sel.options].some(o => o.value === g)) {
+    const o = document.createElement("option");
+    o.value = g; o.text = g + " ⭐";
+    sel.insertBefore(o, sel.firstChild);
+  }
+  sel.value = g;
+  await onGeneChange();
+}
+async function onGeneChange() {
+  selectionVersion++;
+  ["goBtn", "exprSlider", "cipherKoBtn", "cipherOeBtn", "baselineBtn", "causalBtn"]
+    .forEach(id => $(id).disabled = true);
+  $("cipherHint").textContent = $("causalHint").textContent = "等待当前选择的覆盖性检查";
+  if (!DATA) return;
+  const g = $("geneSel").value;
+  if (!g || g.includes("（")) { $("exprMapBtn").disabled = true; return; }
+  const ctx = requestContext("gene");
+  $("exprMapBtn").disabled = false;   // 表达分布对全部 28231 基因都可用
+  if (selectedCell !== null) {
+    try {
+      const r = await api("cell_gene_expr", { cell: selectedCell, gene: g });
+      if (!ctx.current()) return;
+      if (r.value !== undefined) {
+        $("exprSlider").value = r.value; $("valShow").textContent = r.value;
+        $("exprSlider").disabled = $("goBtn").disabled = false;
+      }
+    } catch (e) {
+      if (!ctx.current()) return;
+      setStatus(`<span class="warn">表达量读取失败：${e.message}；滑块暂不可用</span>`);
+    }
+  }
+  if (!ctx.current()) return;
+  checkCipher(g);
+  checkCausal(g);
+}
+
+/* ══ CIPHER 覆盖性 ══ */
+async function checkCipher(gene) {
+  if (!DATA) return;
+  const ctx = requestContext("cipherCoverage");
+  const g = gene || $("geneSel").value;
+  ["cipherKoBtn", "cipherOeBtn", "baselineBtn"].forEach(id => $(id).disabled = true);
+  try {
+    const st = await api("cipher_status");
+    if (!ctx.current()) return;
+    if (!st.fitted) { $("cipherHint").innerHTML = `<span class="warn">CIPHER 未就绪</span>`; return; }
+    if (!g || g.includes("（")) { $("cipherHint").textContent = `CIPHER 就绪（${st.n_genes} 高变基因）`; return; }
+    const c = await api("gene_in_cipher", { gene: g });
+    if (!ctx.current()) return;
+    const on = !!c.covered;
+    $("cipherKoBtn").disabled = !on; $("cipherOeBtn").disabled = !on; $("baselineBtn").disabled = !on;
+    $("cipherHint").innerHTML = on
+      ? `<span class="ok">✓ ${g} 可预测</span>（对照表达 ${c.ctrl_expr}）`
+      : `<span class="warn">✗ ${g} 不在 Top5000 高变基因内</span>，CIPHER 不提供预测（协方差估计不可靠）。`;
+  } catch (e) {
+    if (!ctx.current()) return;
+    $("cipherHint").innerHTML = `<span class="warn">${e.message}</span>`;
+  }
+}
+async function checkCausal(gene) {
+  if (!DATA) return;
+  const ctx = requestContext("causalCoverage");
+  $("causalBtn").disabled = true;
+  $("causalHint").textContent = "查询 GEARS 覆盖…";
+  try {
+    const r = await api("gene_coverage", { gene });
+    if (!ctx.current()) return;
+    if (r.covered) { $("causalBtn").disabled = false; $("causalHint").innerHTML = `<span class="ok">✓ 在 GEARS 训练图内</span>`; }
+    else $("causalHint").innerHTML = `✗ 不在 GEARS 训练图内（负对照：Norman/K562 覆盖有限）`;
+  } catch (e) { if (ctx.current()) $("causalHint").textContent = "GEARS 引擎不可用"; }
+}
+
+/* ══ CIPHER 扰动预测 ══ */
+async function doCipher(direction) {
+  if (!DATA) return;
+  const ctx = requestContext("cipherResult");
+  const gene = $("geneSel").value;
+  if (!gene || gene.includes("（")) return;
+  const label = direction === "ko" ? "敲低→0" : "过表达→2×";
+  setStatus(`📐 CIPHER 计算中：${gene} ${label} …`);
+  $("cipherKoBtn").disabled = $("cipherOeBtn").disabled = true;
+  try {
+    const r = await api("perturb_summary", { gene, direction });
+    if (!ctx.current()) return;
+    const key = `cipher_${gene}_${direction}_${ctx.ds}`;
+    openTab(key, `${direction === "ko" ? "📉" : "📈"} ${gene} ${direction} · ${ctx.ds}`, boxId => {
+      renderPerturbFigure(boxId, r, gene, label);
+    });
+    const s = r.summary;
+    setStatus(
+      `<span class="stat">🟢 上调 <b>${s.n_sig_up}</b></span>` +
+      `<span class="stat">🔵 下调 <b>${s.n_sig_down}</b></span>` +
+      `<span class="stat">📐 |Δ|max <b>${s.delta_abs_max}</b></span>` +
+      `<span class="stat">⏱ ${r.elapsed}s</span>\n` +
+      `<span style="color:var(--mut)">${gene} ${label}：对照表达 ${r.ctrl_expr.toFixed(2)} → ${r.target.toFixed(2)}　|　` +
+      `最敏感${r.group_label || "细胞类型"}：<b>${r.cell_types[0].cell_type}</b>（驱动基因 ${(r.cell_types[0].drivers||[]).join("、")}）</span>`
+    );
+  } catch (e) {
+    if (!ctx.current()) return;
+    const b = e.body || {};
+    setStatus(`<span class="warn">⚠️ ${b.error || e.message}</span>` +
+      (b.reason ? `\n<span style="color:var(--mut)">${b.reason}</span>` : "") +
+      (b.suggestions && b.suggestions.length ? `\n可用的相近基因：${b.suggestions.join("、")}` : ""));
+  }
+  if (ctx.current()) checkCipher();
+}
+
+/* ══ 新增可视化 1：基因表达在 UMAP 上的分布 ══
+   回答「这个基因到底在哪些细胞里表达」——比任何统计量都直观。
+   左=表达量热力着色的 UMAP，右=各分组表达水平条形。 */
+async function doExprMap() {
+  if (!DATA) return;
+  const ctx = requestContext("exprMap");
+  const gene = $("geneSel").value;
+  if (!gene || gene.includes("（")) return;
+  setStatus(`🎨 绘制 ${gene} 的表达分布 …`);
+  try {
+    const r = await api("gene_expr_map", { gene });
+    if (!ctx.current()) return;
+    openTab(`expr_${gene}_${ctx.ds}`, `🎨 ${gene} 表达 · ${ctx.ds}`, boxId => {
+      const vals = r.values;
+      const traces = [
+        // 左：UMAP 按表达量着色（未表达的细胞画成浅灰，避免 0 值占据色阶）
+        {
+          x: ctx.data.umap.map(p => p[0]), y: ctx.data.umap.map(p => p[1]),
+          mode: "markers", type: PLOT_TYPE, xaxis: "x", yaxis: "y",
+          marker: {
+            size: 3.4, color: vals, colorscale: [[0, "#e8ebf0"], [0.15, "#b9d4e8"],
+              [0.4, "#5b9bd5"], [0.7, "#e8a33d"], [1, "#CC0000"]],
+            cmin: 0, cmax: r.max || 1, showscale: true,
+            colorbar: { title: { text: "表达量", font: { size: 10 } }, thickness: 12,
+                        len: .85, x: .40, tickfont: { size: 9 } },
+          },
+          text: ctx.data.cell_types,
+          hovertemplate: `%{text}<br>${gene} = %{marker.color:.2f}<extra></extra>`,
+          showlegend: false,
+        },
+        // 右：各分组平均表达
+        {
+          type: "bar", orientation: "h", xaxis: "x2", yaxis: "y2",
+          x: r.by_group.map(g => g.mean),
+          y: r.by_group.map(g => `${g.group} (n=${g.n_cells})`),
+          marker: { color: r.by_group.map((g, i) => i === 0 ? "#CC0000" : "#90A4AE") },
+          text: r.by_group.map(g => `均值 ${g.mean} · ${g.pct_expressing}% 细胞表达`),
+          textposition: "outside", textfont: { size: 9 }, cliponaxis: false,
+          hovertemplate: "%{y}<br>平均表达 %{x:.3f}<br>%{text}<extra></extra>",
+          showlegend: false,
+        },
+      ];
+      Plotly.newPlot(boxId, traces, {
+        title: { text: `${gene} 表达分布（${r.dataset}）`, font: { size: 13 }, y: .975, yanchor: "top" },
+        grid: { rows: 1, columns: 2, pattern: "independent" },
+        margin: { l: 46, r: 120, t: 72, b: 46 },
+        xaxis:  { domain: [0, .44], title: { text: "UMAP-1", font: { size: 10 } }, tickfont: { size: 9 } },
+        yaxis:  { title: { text: "UMAP-2", font: { size: 10 } }, tickfont: { size: 9 } },
+        xaxis2: { domain: [.60, 1], anchor: "y2",
+                  title: { text: "平均表达量（lognorm）", font: { size: 10 } }, tickfont: { size: 9 } },
+        yaxis2: { anchor: "x2", autorange: "reversed", automargin: true, tickfont: { size: 10 } },
+        annotations: [
+          { text: "① 每个细胞按表达量着色（灰=不表达，红=高表达）", x: .20, y: 1.035,
+            xref: "paper", yref: "paper", showarrow: false, font: { size: 10, color: "#7a8291" } },
+          { text: `② 各${r.group_label}表达水平（红=最高）`, x: .80, y: 1.035,
+            xref: "paper", yref: "paper", showarrow: false, font: { size: 10, color: "#7a8291" } },
+        ],
+      }, { responsive: true, displayModeBar: false });
+    });
+    const top = r.by_group[0];
+    setStatus(`🎨 <b>${gene} 表达分布</b>\n` +
+      `<span class="stat">全体 ${r.pct_expressing}% 细胞表达</span>` +
+      `<span class="stat">最高峰值 ${r.max}</span>\n` +
+      `<span style="color:var(--mut)">表达最高的${r.group_label}：<b>${top.group}</b>` +
+      `（均值 ${top.mean}，${top.pct_expressing}% 细胞表达）</span>`);
+  } catch (e) {
+    if (!ctx.current()) return;
+    setStatus(`<span class="warn">⚠️ ${(e.body && e.body.error) || e.message}</span>`);
+  }
+}
+
+/* ══ 新增可视化 2：归因结果图（替代侧栏小表格）══
+   同时展示「模型认为多重要」和「这个细胞里实际有多少」。 */
+async function doAttrFigure() {
+  if (!DATA || selectedCell === null) return;
+  const ctx = requestContext("attrFigure");
+  setStatus("📊 绘制归因图 …");
+  try {
+    const r = await api("attribution_map", { cell: selectedCell, k: 12 });
+    if (!ctx.current()) return;
+    openTab(`attr_${ctx.cell}_${ctx.ds}`, `📊 细胞#${ctx.cell} 归因 · ${ctx.ds}`, boxId => {
+      const rows = r.rows;
+      Plotly.newPlot(boxId, [
+        { type: "bar", orientation: "h", xaxis: "x", yaxis: "y", name: "归因分数",
+          x: rows.map(d => d.attribution), y: rows.map(d => d.gene),
+          // 配色只区分方向，不代表「重要/不重要」——重要性看长度（|IG|）。
+          // 用橙/紫而非红/绿：红绿对色盲不友好，且红=负易被误读成"负面"。
+          marker: { color: rows.map(d => d.attribution >= 0 ? "#E8833A" : "#6A4C93") },
+          hovertemplate: "%{y}<br>IG %{x:+.4f}（长度=重要性，符号=方向）<extra></extra>",
+          showlegend: false },
+        { type: "bar", orientation: "h", xaxis: "x2", yaxis: "y2", name: "该细胞",
+          x: rows.map(d => d.expr), y: rows.map(d => d.gene),
+          marker: { color: "#0052A0" },
+          hovertemplate: "%{y}<br>该细胞 %{x:.2f}<extra></extra>" },
+        { type: "bar", orientation: "h", xaxis: "x2", yaxis: "y2", name: "全体均值",
+          x: rows.map(d => d.pop_mean), y: rows.map(d => d.gene),
+          marker: { color: "#c3cad6" },
+          hovertemplate: "%{y}<br>全体均值 %{x:.2f}<extra></extra>" },
+      ], {
+        title: { text: `归因分析：细胞 #${r.cell}（${r.cell_type}）`, font: { size: 13 }, y: .975, yanchor: "top" },
+        grid: { rows: 1, columns: 2, pattern: "independent" },
+        margin: { l: 90, r: 20, t: 72, b: 46 },
+        barmode: "group",
+        legend: { orientation: "h", y: -.1, font: { size: 10 } },
+        xaxis:  { domain: [0, .46], title: { text: "IG 归因分数（|值|=重要性）", font: { size: 10 } },
+                  zeroline: true, zerolinecolor: "#888", zerolinewidth: 1.5,
+                  tickfont: { size: 9 }, automargin: true },
+        yaxis:  { autorange: "reversed", automargin: true, tickfont: { size: 10 } },
+        xaxis2: { domain: [.58, 1], anchor: "y2",
+                  title: { text: "表达量对比", font: { size: 10 } }, tickfont: { size: 9 } },
+        yaxis2: { anchor: "x2", autorange: "reversed", automargin: true, showticklabels: false },
+        annotations: [
+          { text: "① 重要性看条形<b>长度</b>；颜色只表方向（橙=推高嵌入, 紫=推低），无优劣之分",
+            x: .22, y: 1.035, xref: "paper", yref: "paper", showarrow: false,
+            font: { size: 10, color: "#7a8291" } },
+          { text: "② 该细胞 vs 全体均值：蓝条远高于灰条 = 该基因在此细胞特异富集",
+            x: .80, y: 1.035, xref: "paper", yref: "paper", showarrow: false,
+            font: { size: 10, color: "#7a8291" } },
+        ],
+      }, { responsive: true, displayModeBar: false });
+    });
+    const t3 = r.rows.slice(0, 3).map(d => d.gene).join("、");
+    setStatus(`📊 <b>归因分析</b>　细胞 #${r.cell}（${r.cell_type}）\n` +
+      `<span style="color:var(--mut)">最具定义性的基因（按 |IG| 排序）：<b>${t3}</b>。\n` +
+      `⚠️ IG 的<b>正负号只表示把嵌入分量推高还是推低</b>，不代表基因重要与否——` +
+      `重要性一律看绝对值。所以 B 细胞标志物出现负号是正常的。</span>`);
+  } catch (e) {
+    if (!ctx.current()) return;
+    setStatus(`<span class="warn">⚠️ ${(e.body && e.body.error) || e.message}</span>`);
+  }
+}
+
+/* ══ 新增可视化 3：联合扰动的质心距离图 ══
+   把状态栏里那串纯文字距离表变成可读的图。 */
+function renderCentroidFigure(r, genes, ds) {
+  openTab(`centroid_${ds}`, `🎯 质心距离 · ${ds}`, boxId => {
+    const types = Object.keys(r.new_dist);
+    const oldD = types.map(t => r.old_dist[t]);
+    const newD = types.map(t => r.new_dist[t]);
+    const order = types.map((t, i) => i).sort((a, b) => newD[a] - newD[b]);
+    const T = order.map(i => types[i]);
+    Plotly.newPlot(boxId, [
+      { type: "bar", orientation: "h", name: "扰动前",
+        x: order.map(i => oldD[i]), y: T,
+        marker: { color: "#c3cad6" },
+        hovertemplate: "%{y}<br>扰动前距离 %{x:.3f}<extra></extra>" },
+      { type: "bar", orientation: "h", name: "扰动后",
+        x: order.map(i => newD[i]), y: T,
+        marker: { color: T.map(t => t === r.new_nearest ? "#CC0000" : "#0052A0") },
+        hovertemplate: "%{y}<br>扰动后距离 %{x:.3f}<extra></extra>" },
+    ], {
+      title: { text: `实验性编码空间质心距离：${genes.join(" + ")} → ${r.value}`, font: { size: 13 } },
+      margin: { l: 110, r: 30, t: 68, b: 48 },
+      barmode: "group",
+      legend: { orientation: "h", y: -.12, font: { size: 10 } },
+      xaxis: { title: { text: "到各类型质心的距离（越小越接近）", font: { size: 11 } } },
+      yaxis: { automargin: true, tickfont: { size: 11 } },
+      annotations: [{
+        text: r.changed
+          ? `最近参考质心变化：${r.old_nearest} → ${r.new_nearest}（不代表细胞类型转化）`
+          : `最近参考质心仍为 ${r.new_nearest}（不代表细胞身份判定）`,
+        x: .5, y: 1.06, xref: "paper", yref: "paper", showarrow: false,
+        font: { size: 11, color: r.changed ? "#CC0000" : "#7a8291" },
+      }],
+    }, { responsive: true, displayModeBar: false });
+  });
+}
+
+/* ══ 新增可视化 4：GEARS 因果预测图 ══ */
+function renderGearsFigure(r, gene) {
+  openTab(`gears_${gene}`, `🧪 ${gene} GEARS · Norman/K562`, boxId => {
+    const up = (r.top_up || []).slice(0, 10);
+    const dn = (r.top_down || []).slice(0, 10);
+    const all = [...dn, ...up.slice().reverse()];
+    Plotly.newPlot(boxId, [{
+      type: "bar", orientation: "h",
+      x: all.map(d => d[1]), y: all.map(d => d[0]),
+      marker: { color: all.map(d => d[1] > 0 ? "#2E7D32" : "#1565C0") },
+      text: all.map(d => d[1].toFixed(3)), textposition: "outside", textfont: { size: 9 },
+      hovertemplate: "%{y}<br>Δ %{x:.4f}<extra></extra>",
+    }], {
+      title: { text: `GEARS 因果预测（负对照）：${gene} 敲低`, font: { size: 13 } },
+      margin: { l: 96, r: 50, t: 70, b: 48 },
+      xaxis: { title: { text: "预测 Δ（DE 空间）", font: { size: 11 } }, zeroline: true },
+      yaxis: { automargin: true, tickfont: { size: 10 } },
+      annotations: [{
+        text: `⚠️ 训练自 Norman/K562 Perturb-seq；对非造血细胞为域外推断 · 预测基因数 ${r.n_genes_predicted}`,
+        x: .5, y: 1.055, xref: "paper", yref: "paper", showarrow: false,
+        font: { size: 10, color: "#CC0000" },
+      }],
+    }, { responsive: true, displayModeBar: false });
+  });
+}
+
+/* 双子图：Top30 基因 Δ 条形 + 细胞类型响应条形 */
+function renderPerturbFigure(boxId, r, gene, label) {
+  const rows = r.heatmap, cts = r.cell_types;
+  const traces = [
+    {
+      type: "bar", orientation: "h", xaxis: "x", yaxis: "y", name: "Δx",
+      x: rows.map(d => d.delta), y: rows.map(d => d.gene),
+      marker: { color: rows.map(d => d.is_target ? "#CC0000" : (d.delta > 0 ? "#2E7D32" : "#1565C0")) },
+      hovertemplate: "%{y}: Δ%{x:.4f}<extra></extra>", showlegend: false,
+    },
+    {
+      type: "bar", orientation: "h", xaxis: "x2", yaxis: "y2", name: "响应",
+      x: cts.map(c => c.response), y: cts.map(c => `${c.cell_type} (n=${c.n_cells})`),
+      marker: { color: cts.map((c, i) => i === 0 ? "#E65100" : "#90A4AE") },
+      text: cts.map(c => (c.drivers || []).slice(0, 3).join("、")),
+      textposition: "outside", textfont: { size: 10 },
+      hovertemplate: "%{y}<br>响应 %{x:.4f}<br>驱动: %{text}<extra></extra>", showlegend: false,
+    },
+  ];
+  const layout = {
+    title: { text: `CIPHER 预测：${gene} ${label}　(${r.dataset})`, font: { size: 13 } },
+    grid: { rows: 1, columns: 2, pattern: "independent" },
+    margin: { l: 96, r: 20, t: 44, b: 46 },
+    xaxis:  { domain: [0, .46], title: { text: "预测 Δx（lognorm）", font: { size: 11 } }, zeroline: true },
+    yaxis:  { autorange: "reversed", automargin: true, tickfont: { size: 10 } },
+    xaxis2: { domain: [.60, 1], title: { text: `${r.group_label || "细胞类型"}响应（余弦对齐度）`, font: { size: 11 } } },
+    yaxis2: { anchor: "x2", autorange: "reversed", automargin: true, tickfont: { size: 10 } },
+    annotations: [
+      { text: "Top30 |Δ| 基因（红=目标, 绿=上调, 蓝=下调）", x: .23, y: 1.045, xref: "paper", yref: "paper",
+        showarrow: false, font: { size: 10, color: "#7a8291" } },
+      { text: `哪些${r.group_label || "细胞类型"}最受影响（橙=最敏感）`, x: .80, y: 1.045, xref: "paper", yref: "paper",
+        showarrow: false, font: { size: 10, color: "#7a8291" } },
+    ],
+  };
+  Plotly.newPlot(boxId, traces, layout, { responsive: true, displayModeBar: false });
+}
+
+/* ══ 线性基线对比 ══ */
+async function doBaseline() {
+  if (!DATA) return;
+  const ctx = requestContext("baseline");
+  const gene = $("geneSel").value;
+  if (!gene || gene.includes("（")) return;
+  setStatus(`📏 计算线性基线对照：${gene} …`);
+  try {
+    const r = await api("perturb_compare", { gene, direction: "ko" });
+    if (!ctx.current()) return;
+    openTab(`base_${gene}_${ctx.ds}`, `📏 ${gene} vs 基线 · ${ctx.ds}`, boxId => {
+      const rows = r.rows;
+      Plotly.newPlot(boxId, [
+        { type: "bar", orientation: "h", name: "CIPHER Δx",
+          x: rows.map(d => d.delta_cipher), y: rows.map(d => d.gene),
+          marker: { color: rows.map(d => d.is_target ? "#CC0000" : (d.delta_cipher > 0 ? "#2E7D32" : "#1565C0")) },
+          hovertemplate: "%{y}: Δ%{x:.4f}<extra></extra>" },
+        { type: "scatter", mode: "markers", name: "control-mean 基线 (Δ=0)",
+          x: rows.map(() => 0), y: rows.map(d => d.gene),
+          marker: { color: "#555", size: 9, symbol: "line-ns-open", line: { width: 2 } },
+          hovertemplate: "基线预测：无变化<extra></extra>" },
+      ], {
+        title: { text: `CIPHER vs 线性基线 — ${gene} 敲低（${ctx.ds}）`, font: { size: 13 } },
+        margin: { l: 96, r: 24, t: 44, b: 46 },
+        legend: { orientation: "h", y: -0.12, font: { size: 11 } },
+        xaxis: { title: { text: "Δx（灰竖线=control-mean 基线，恒为 0）", font: { size: 11 } }, zeroline: true },
+        yaxis: { autorange: "reversed", automargin: true, tickfont: { size: 10 } },
+      }, { responsive: true, displayModeBar: false });
+    });
+    setStatus(`📏 <b>线性基线对照</b>（Nature Methods 2025 强制对照）\n` +
+      `<span style="color:var(--mut)">control-mean 基线预测所有基因 Δ=0。彩色条超出灰线的部分 = CIPHER 从协方差结构中学到的、基线给不出的信号。` +
+      `上调 ${r.summary.n_sig_up} / 下调 ${r.summary.n_sig_down}，|Δ|max=${r.summary.delta_abs_max}。</span>`);
+  } catch (e) {
+    if (!ctx.current()) return;
+    setStatus(`<span class="warn">⚠️ ${(e.body && e.body.error) || e.message}</span>`);
+  }
+}
+
+/* ══ 反事实位移（SCimilarity）══ */
+async function doPerturb() {
+  if (!DATA || selectedCell === null || $("exprSlider").disabled) return;
+  const ctx = requestContext("move");
+  const gene = $("geneSel").value;
+  if (!gene || gene.includes("（")) { setStatus(`<span class="warn">⚠️ 请先选一个有效基因</span>`); return; }
+  const value = parseFloat($("exprSlider").value);
+  setStatus("🔬 实验性编码器敏感性计算中…");
+  try {
+    const r = await api("perturb", { cell: selectedCell, gene, value });
+    if (!ctx.current()) return;
+    showMove(r.old_xy, r.new_xy, r.umap_moved, ctx, {
+      zoom: r.zoom, neighbors: r.neighbors, umap_shift: r.umap_shift,
+      displacement: r.displacement,
+      tabLabel: `${gene} 位移`,
+      title: `实验性编码位移：${gene} ${r.old_value} → ${r.new_value}`,
+    });
+    const same = (r.old_value === r.new_value)
+      ? `\n<span class="warn">注意：该基因在此细胞中原本就是 ${r.old_value}，本次扰动等于没改动——换个高表达该基因的细胞再试。</span>` : "";
+    setStatus(`✅ <b>编码器敏感性探索</b>　${gene}: ${r.old_value} → ${r.new_value}\n` +
+      `<span class="stat">嵌入位移 <b>${r.displacement}</b></span>` +
+      `<span class="stat">UMAP 位移 <b>${r.umap_shift}</b></span>` +
+      `<span class="stat">⏱ ${r.elapsed}s</span>\n` +
+      `<span style="color:var(--mut)">右侧「🎯 位移」标签页：左=全景定位，右=输入修改前后的编码位置对比。</span>\n` +
+      `<span class="warn">实验性结果：不代表真实细胞响应、细胞类型转化或治疗效果。</span>` + same);
+  } catch (e) {
+    if (!ctx.current()) return;
+    setStatus(`<span class="warn">⚠️ ${(e.body && e.body.error) || e.message}</span>`);
+  }
+}
+async function doMultiPerturb(n) {
+  if (!DATA || selectedCell === null || !currentTop.length) return;
+  const ctx = requestContext("move");
+  const genes = currentTop.slice(0, n);
+  const value = parseFloat($("multiValue").value) || 0;
+  setStatus(`🔬 多基因编码器敏感性探索 ${genes.join(" + ")} → ${value} …`);
+  try {
+    const r = await api("perturb_multi", { cell: selectedCell, genes: genes.join(","), value });
+    if (!ctx.current()) return;
+    showMove(r.old_xy, r.new_xy, r.umap_moved, ctx, {
+      zoom: r.zoom, neighbors: r.neighbors, umap_shift: r.umap_shift,
+      displacement: r.displacement,
+      tabLabel: `Top${genes.length} 联合位移`,
+      title: `实验性多基因编码位移：${genes.join(" + ")} → ${r.value}`,
+    });
+    const verdict = r.changed
+      ? `<span class="warn">最近参考质心变化：${r.old_nearest} → ${r.new_nearest}</span>`
+      : `最近参考质心仍为 ${r.new_nearest}（原标注 ${r.declared_type}）`;
+    renderCentroidFigure(r, genes, ctx.ds);
+    const dist = Object.entries(r.new_dist).sort((a, b) => a[1] - b[1])
+      .map(([ct, d], i) => `${i === 0 ? "👉" : "　"} ${ct}: ${d}`).join("\n");
+    setStatus(`✅ <b>多基因编码器敏感性探索</b>　${genes.join(" + ")} → ${r.value}\n` +
+      `<span class="stat">嵌入位移 <b>${r.displacement}</b></span>` +
+      `<span class="stat">UMAP 位移 <b>${r.umap_shift}</b></span>${verdict}\n` +
+      `<span style="color:var(--mut)">修改输入后的编码到各参考质心距离：\n${dist}</span>\n` +
+      `<span class="warn">实验性结果：不代表真实细胞响应、细胞类型转化或治疗效果。</span>`);
+  } catch (e) {
+    if (!ctx.current()) return;
+    setStatus(`<span class="warn">⚠️ ${(e.body && e.body.error) || e.message}</span>`);
+  }
+}
+/* ══ 反事实位移可视化 ══
+   单基因扰动的 UMAP 位移只有 ~0.05 个单位，在跨度 25 单位的全景图里
+   等于一个像素——所以必须放大。这里用「全景 + 放大镜」双视图：
+   左边全景标出位置并画出取景框，右边把位移区域放大到填满画布。 */
+function showMove(oldXY, newXY, moved, ctx, extra) {
+  extra = extra || {};
+  const zoom = extra.zoom, nb = extra.neighbors;
+  const title = `${extra.title || "实验性编码位移"}（${ctx.ds}）`;
+
+  // 没有放大窗信息（老响应）→ 退回单图模式
+  if (!zoom) { showMoveSimple(oldXY, newXY, moved); return; }
+
+  openTab(`move_${ctx.ds}`, `🎯 ${extra.tabLabel || "反事实位移"} · ${ctx.ds}`, boxId => {
+    const traces = [];
+
+    // ── 左：全景（灰底全部细胞 + 取景框）──
+    traces.push({
+      x: ctx.data.umap.map(p => p[0]), y: ctx.data.umap.map(p => p[1]),
+      mode: "markers", type: PLOT_TYPE, xaxis: "x", yaxis: "y",
+      marker: { size: 2, color: "#d3d8e0", opacity: .55 },
+      hoverinfo: "skip", showlegend: false, name: "全部细胞",
+    });
+    traces.push({
+      x: [oldXY[0]], y: [oldXY[1]], mode: "markers", type: "scatter",
+      xaxis: "x", yaxis: "y", showlegend: false, hoverinfo: "skip",
+      marker: { size: 11, color: "#CC0000", symbol: "circle",
+                line: { width: 2, color: "#fff" } },
+    });
+
+    // ── 右：放大镜（邻域背景 + 前后位置 + 箭头）──
+    if (nb && nb.x && nb.x.length) {
+      const groups = {};
+      nb.t.forEach((t, i) => { (groups[t] = groups[t] || []).push(i); });
+      Object.entries(groups).forEach(([t, idx]) => {
+        traces.push({
+          x: idx.map(i => nb.x[i]), y: idx.map(i => nb.y[i]),
+          mode: "markers", type: "scatter", xaxis: "x2", yaxis: "y2",
+          name: t, legendgroup: t,
+          marker: { size: 9, color: COLORS[t] || "#9aa3b0", opacity: .55,
+                    line: { width: .5, color: "#fff" } },
+          hovertemplate: `${t}<extra></extra>`,
+        });
+      });
+    }
+    // 扰动前（黑圆）
+    traces.push({
+      x: [oldXY[0]], y: [oldXY[1]], mode: "markers+text", type: "scatter",
+      xaxis: "x2", yaxis: "y2", name: "扰动前", showlegend: true,
+      marker: { size: 20, color: "#222", symbol: "circle", line: { width: 2.5, color: "#fff" } },
+      text: ["扰动前"], textposition: "bottom center",
+      textfont: { size: 11, color: "#222" },
+      hovertemplate: `扰动前 (%{x:.3f}, %{y:.3f})<extra></extra>`,
+    });
+    // 扰动后（红星）
+    traces.push({
+      x: [newXY[0]], y: [newXY[1]], mode: "markers+text", type: "scatter",
+      xaxis: "x2", yaxis: "y2", name: "扰动后", showlegend: true,
+      marker: { size: 26, color: "#CC0000", symbol: "star", line: { width: 2, color: "#fff" } },
+      text: ["扰动后"], textposition: "top center",
+      textfont: { size: 11, color: "#CC0000" },
+      hovertemplate: `扰动后 (%{x:.3f}, %{y:.3f})<extra></extra>`,
+    });
+
+    const shift = extra.umap_shift != null ? extra.umap_shift : 0;
+    const layout = {
+      title: { text: title, font: { size: 13 }, y: 0.975, yanchor: "top" },
+      grid: { rows: 1, columns: 2, pattern: "independent" },
+      margin: { l: 46, r: 16, t: 74, b: 44 },   // t 留够：标题 + 两行子图说明不重叠
+      legend: { font: { size: 10 }, x: 1.005, y: 1, xanchor: "left" },
+      xaxis:  { domain: [0, .36], title: { text: "UMAP-1（全景）", font: { size: 10 } },
+                tickfont: { size: 9 } },
+      yaxis:  { title: { text: "UMAP-2", font: { size: 10 } }, tickfont: { size: 9 } },
+      xaxis2: { domain: [.46, 1], anchor: "y2", range: zoom.x,
+                title: { text: `UMAP-1（放大 · 视窗 ${(zoom.span*2).toFixed(2)} 单位）`, font: { size: 10 } },
+                tickfont: { size: 9 } },
+      yaxis2: { anchor: "x2", range: zoom.y, tickfont: { size: 9 } },
+      shapes: [
+        // 全景上的取景框
+        { type: "rect", xref: "x", yref: "y",
+          x0: zoom.x[0], x1: zoom.x[1], y0: zoom.y[0], y1: zoom.y[1],
+          line: { color: "#CC0000", width: 2 }, fillcolor: "rgba(204,0,0,.07)" },
+      ],
+      annotations: [
+        { text: "① 全景：红点 = 被扰动细胞，红框 = 放大区域",
+          x: .18, y: 1.035, xref: "paper", yref: "paper", showarrow: false,
+          font: { size: 10, color: "#7a8291" } },
+        { text: `② 放大：UMAP 位移 ${shift}（嵌入位移 ${extra.displacement || "-"}）`,
+          x: .73, y: 1.035, xref: "paper", yref: "paper", showarrow: false,
+          font: { size: 10, color: "#7a8291" } },
+      ],
+    };
+
+    // 放大视图里的迁移箭头（位移可见才画）
+    if (moved) {
+      layout.annotations.push({
+        x: newXY[0], y: newXY[1], ax: oldXY[0], ay: oldXY[1],
+        xref: "x2", yref: "y2", axref: "x2", ayref: "y2",
+        showarrow: true, arrowhead: 3, arrowsize: 1.4, arrowwidth: 3.5,
+        arrowcolor: "#CC0000", text: "",
+      });
+    } else {
+      layout.annotations.push({
+        x: oldXY[0], y: oldXY[1], xref: "x2", yref: "y2",
+        text: "当前 UMAP 投影位置未变（不等于无生物学效应）", showarrow: true, arrowhead: 2,
+        ax: 44, ay: -40, font: { size: 10, color: "#CC0000" },
+        bgcolor: "rgba(255,255,255,.9)", bordercolor: "#CC0000", borderpad: 3,
+      });
+    }
+
+    Plotly.newPlot(boxId, traces, layout, { responsive: true, displayModeBar: false });
+  });
+
+  // 全景主图上也留一个标记，方便回看
+  try {
+    Plotly.relayout("plot_umap", { annotations: [{
+      x: newXY[0], y: newXY[1], ax: oldXY[0], ay: oldXY[1],
+      xref: "x", yref: "y", axref: "x", ayref: "y",
+      showarrow: true, arrowhead: 3, arrowsize: 1.6, arrowwidth: 2.5,
+      arrowcolor: "#CC0000", text: "" }] });
+  } catch (e) {}
+}
+
+/* 兜底：没有 zoom 数据时的单图模式 */
+function showMoveSimple(oldXY, newXY, moved) {
+  const box = "plot_umap";
+  Plotly.addTraces(box, {
+    x: moved ? [oldXY[0], newXY[0]] : [oldXY[0]],
+    y: moved ? [oldXY[1], newXY[1]] : [oldXY[1]],
+    mode: "markers", type: PLOT_TYPE, name: "扰动", showlegend: false,
+    marker: moved
+      ? { size: [14, 16], symbol: ["circle", "star"], color: ["#333", "#CC0000"],
+          line: { width: 1.5, color: "#fff" } }
+      : { size: 18, symbol: "circle-open-dot", color: "#CC0000",
+          line: { width: 3, color: "#CC0000" } },
+  });
+}
+
+/* ══ GEARS 因果（负对照）══ */
+async function doCausal() {
+  if (!DATA) return;
+  const ctx = requestContext("causalResult");
+  const gene = $("geneSel").value;
+  if (!gene || gene.includes("（")) return;
+  $("causalBtn").disabled = true;
+  setStatus(`🧪 GEARS 因果预测 ${gene} 敲低中…（首次加载模型约 30s，预测 1–2 分钟）`);
+  try {
+    const r = await api("perturb_causal", { gene });
+    if (!ctx.current()) return;
+    renderGearsFigure(r, gene);
+    setStatus(`✅ <b>GEARS 因果预测</b>（负对照）　${gene} 敲低\n` +
+      `<span class="stat">预测基因 ${r.n_genes_predicted}</span>` +
+      `<span class="stat">|Δ|max ${r.delta_abs_max}</span>\n` +
+      `<span class="warn">⚠️ ${r.note || ""}</span>`);
+  } catch (e) {
+    if (!ctx.current()) return;
+    setStatus(`<span class="warn">⚠️ ${e.message}</span>`);
+  }
+  if (ctx.current()) checkCausal(gene);
+}
+
+/* ══ 初始化 ══ */
+async function init() {
+  if (location.protocol === "file:") {
+    $("dsState").innerHTML = `<span class="warn">⚠️ 请通过服务访问：http://127.0.0.1:8377（双击「启动VirtualCellTool.command」）</span>`;
+    return;
+  }
+  $("dsSel").onchange = () => loadDataset($("dsSel").value);
+  $("btnGroup").onclick = () => { colorMode = "group";
+    $("btnGroup").style.background = "var(--blue)"; $("btnCluster").style.background = "#aab1bd"; drawUmap(); };
+  $("btnCluster").onclick = () => { colorMode = "cluster";
+    $("btnCluster").style.background = "var(--blue)"; $("btnGroup").style.background = "#aab1bd"; drawUmap(); };
+
+  let timer = null;
+  $("geneFilter").oninput = e => {
+    if (!DATA) return;
+    const ctx = requestContext("search");
+    const q = e.target.value.trim();
+    clearTimeout(timer);
+    if (q.length < 2) { fillGenes(DATA.genes); onGeneChange(); return; }
+    timer = setTimeout(async () => {
+      if (!ctx.current()) return;
+      try {
+        const r = await api("search_genes", { q });
+        if (!ctx.current()) return;
+        fillGenes(r.matches.length ? r.matches : ["（无匹配基因）"]);
+        onGeneChange();
+      } catch (e) {
+        if (ctx.current()) setStatus(`<span class="warn">搜索失败：${e.message}</span>`);
+      }
+    }, 250);
+  };
+  $("geneSel").onchange = onGeneChange;
+  $("exprMapBtn").onclick = doExprMap;
+  $("attrFigBtn").onclick = doAttrFigure;
+  $("cipherKoBtn").onclick = () => doCipher("ko");
+  $("cipherOeBtn").onclick = () => doCipher("oe");
+  $("baselineBtn").onclick = doBaseline;
+  $("causalBtn").onclick = doCausal;
+  $("goBtn").onclick = doPerturb;
+
+  let pt = null;
+  $("exprSlider").oninput = e => {
+    if (!DATA || $("exprSlider").disabled) return;
+    const ctx = requestContext("move");
+    $("valShow").textContent = e.target.value;
+    clearTimeout(pt);
+    pt = setTimeout(() => { if (ctx.current() && selectedCell !== null) doPerturb(); }, 350);
+  };
+  document.querySelectorAll(".multiBtn").forEach(b => b.onclick = () => doMultiPerturb(+b.dataset.n));
+
+  window.addEventListener("resize", () => {
+    const t = TABS.find(t => t.view.classList.contains("on"));
+    if (t) { try { Plotly.Plots.resize(t.box); } catch (e) {} }
+  });
+
+  const ds = new URLSearchParams(location.search).get("ds") || "pbmc";
+  await loadDataset(ds);
+}
+init();
+</script>
+</body>
+</html>

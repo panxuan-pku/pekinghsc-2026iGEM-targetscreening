@@ -1,0 +1,24 @@
+[build-system]
+requires = ["setuptools>=66.1"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "pekinghsc-targetscreening"
+version = "1.0.0"
+description = "Evidence-guided gene prioritization and exploratory virtual perturbation"
+requires-python = ">=3.11"
+dynamic = ["dependencies"]
+
+[tool.setuptools.dynamic]
+dependencies = {file = ["screening/requirements.txt"]}
+
+[tool.setuptools.packages.find]
+include = ["screening", "screening.*", "vct", "vct.*"]
+
+[tool.setuptools.package-data]
+screening = ["config/*.yaml", "requirements*.txt", "environment.yml"]
+vct = ["web/*.html", "web/*.js", "requirements*.txt", "environment.yml"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests/screening"]
+pythonpath = ["."]

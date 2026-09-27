@@ -1,0 +1,20 @@
+# Reproduced on Python 3.11.15, macOS arm64. No old editable .pth is needed.
+numpy==2.4.6
+pandas==2.3.3
+scipy==1.17.1
+scikit-learn==1.9.0
+anndata==0.12.19
+scanpy==1.11.5
+umap-learn==0.5.12
+torch==2.13.0
+captum==0.9.0
+fastapi==0.141.1
+uvicorn==0.52.2
+cell-gears==0.1.2
+torch-geometric==2.8.0.post1
+matplotlib==3.11.1
+pyarrow==25.0.1
+psutil==7.2.2
+
+# Pinned upstream encoder/attribution library (Apache-2.0).
+sc-signature @ git+https://github.com/Genentech/SIGnature.git@c1546cb9857acb3d91e50d19233a7b2a28bf54d6

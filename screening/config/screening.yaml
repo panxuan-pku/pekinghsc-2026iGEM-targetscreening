@@ -1,0 +1,37 @@
+# Single merged screening profile. No OT, IMPC or expression contribution to rank.
+genome_build: GRCh38
+coordinate_system: 1-based-inclusive
+disease_id: MONDO_0008684
+disease_name: Wolf-Hirschhorn syndrome
+phenotype_ids: []
+ot_release: '26.09'
+project_min_utr3_bp: 30
+module_budget_bp: 4400
+assumed_module_bp: 300
+consensus_v2:
+  normalize: raw
+  evidence:
+    clinGen_hi_score: {weight: 3, direction: ordinal, ordinal_scale: 3, low_score_penalty: 0}
+    gnomad_LOEUF: {weight: 2, direction: lower_better}
+    gnomad_pLI: {weight: 2, direction: higher_better}
+  hpa_penalty: {organs: [], cap: 0, per_organ_weight: 0, expr_threshold: 9999}
+  borda: {enabled: false}
+  tuning: {enabled: false, positive_controls: []}
+  validation: {max_missing_rate: 0.5}
+  recessive: {gnomad_weight_multiplier: 1.0}
+references:
+  annotation.gtf.gz:
+    version: GENCODE_v44_GRCh38_full
+    url: https://ftp.ebi.ac.uk/pub/databases/gencode/Gencode_human/release_44/gencode.v44.annotation.gtf.gz
+  hgnc.tsv:
+    version: HGNC_download_snapshot
+    url: https://storage.googleapis.com/public-download-files/hgnc/tsv/tsv/hgnc_complete_set.txt
+  clingen.tsv:
+    version: ClinGen_GRCh38_download_snapshot
+    url: https://ftp.clinicalgenome.org/ClinGen_gene_curation_list_GRCh38.tsv
+  gnomad.tsv.gz:
+    version: gnomAD_v4.1.1
+    url: https://storage.googleapis.com/gcp-public-data--gnomad/release/4.1.1/constraint/gnomad.v4.1.1.constraint_metrics.tsv.bgz
+  hpa.zip:
+    version: HPA_v24
+    url: https://v24.proteinatlas.org/download/tsv/rna_tissue_consensus.tsv.zip

@@ -1,0 +1,2 @@
+# Development tests only; ordinary screening users do not need this file.
+pytest==9.1.1

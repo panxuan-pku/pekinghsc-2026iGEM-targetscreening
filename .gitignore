@@ -1,0 +1,30 @@
+# All downloaded/generated assets and environments stay local.
+/workspace/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+*.egg-info/
+/build/
+/dist/
+.DS_Store
+.env
+.env.*
+*.log
+.coverage
+htmlcov/
+# Scientific data and model weights are obtained using the documented workflow.
+*.h5ad
+*.h5
+*.hdf5
+*.npz
+*.npy
+*.parquet
+*.pt
+*.pth
+*.ckpt
+*.pkl
+*.pickle
+*.gz
+*.bgz
+*.zip
+*.tar

@@ -1,0 +1,184 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>历史实验与方法迭代 · VirtualCellTool</title>
+<link rel="icon" href="data:,">
+<style>
+  :root{color-scheme:light;--ink:#243247;--muted:#56677d;--line:#dce4ed;--accent:#a32237}
+  *{box-sizing:border-box}body{margin:0;background:#f5f7fa;color:var(--ink);font:14px/1.75 -apple-system,"PingFang SC",sans-serif}
+  main{max-width:1120px;margin:auto;padding:26px 24px 40px}h1{font-size:25px;line-height:1.35;margin:10px 0}h2{font-size:19px;margin:0 0 8px}h3{font-size:14px;margin:18px 0 6px}
+  p{margin:8px 0}.eyebrow{color:var(--accent);font-size:12px;letter-spacing:1px}.intro{max-width:860px;color:var(--muted)}
+  nav{display:flex;flex-wrap:wrap;gap:8px;margin:20px 0}a{color:#145b91;overflow-wrap:anywhere}nav a{border:1px solid var(--line);border-radius:20px;padding:5px 12px;background:white;text-decoration:none}
+  section{background:white;border:1px solid var(--line);border-radius:12px;padding:22px;margin:18px 0;scroll-margin-top:12px}
+  .label{color:var(--accent);font-size:12px;font-weight:600}.muted,figcaption{color:var(--muted);font-size:12px}
+  [data-artifact]:not([href])::after{content:"（未核对或不可用）";color:var(--muted)}
+  .notice{border-left:3px solid #ce8e2c;background:#fff6e7;padding:10px 14px;border-radius:3px;margin:12px 0}
+  .metric{background:#f0f5fb;border-radius:7px;padding:12px 16px;font-variant-numeric:tabular-nums;white-space:pre-line}
+  .pending{border:1px dashed #bdc9d7;border-radius:7px;padding:12px 16px;color:var(--muted);margin:12px 0}
+  .columns{display:grid;grid-template-columns:1fr 1fr;gap:22px}.sources{font-size:12px;margin-top:12px;overflow-wrap:anywhere}
+  figure{margin:14px 0 0}figure img{width:100%;height:auto;border:1px solid var(--line);border-radius:5px;background:white}figcaption{margin-top:7px}
+  details{margin-top:12px}summary{cursor:pointer;color:#145b91}code{font-size:11px;overflow-wrap:anywhere}ul{padding-left:20px;margin:8px 0}button{cursor:pointer;padding:5px 12px;background:white;border:1px solid var(--line);border-radius:6px;color:var(--ink)}
+  #archiveState{font-size:12px;color:var(--muted)}#archiveState[data-error="true"]{color:#a32237}
+  @media(max-width:660px){main{padding:16px 12px}section{padding:16px}.columns{grid-template-columns:1fr;gap:4px}h1{font-size:21px}}
+</style>
+</head>
+<body>
+<main>
+  <header>
+    <div class="eyebrow">VIRTUALCELLTOOL / RESEARCH ARCHIVE / 只读</div>
+    <h1>历史实验与方法迭代</h1>
+    <p class="intro">保留尝试、负结果与解释的变化。这里展示已保存的材料，不会运行扰动，不受主页面的疾病、细胞或基因选择影响。Williams 档案始终属于 Williams，不是当前 MS/PBMC 数据集的新结果。</p>
+    <p class="muted">按研究路线整理，不虚构精确时间顺序或“CellOracle 被 GEARS 直接替代”的决策链。跨数据、跨模型的指标不能直接排名。</p>
+    <div id="fileHelp" class="notice" hidden>
+      <p>请通过工具服务查看图片和指标：<a href="http://127.0.0.1:8377/web/history.html">打开服务版历史面板（默认端口 8377）</a>。</p>
+      <p class="muted">若服务尚未启动，可运行工具目录中的「启动VirtualCellTool.command」。如已设置自定义 VCT_PORT，请使用启动日志显示的地址并追加 /web/history.html；无需安装 CellOracle。</p>
+    </div>
+    <div id="archiveState" role="status">正在核对本地历史材料…</div>
+    <button id="reload" type="button">重新核对材料</button>
+  </header>
+  <nav aria-label="研究路线">
+    <a href="#celloracle">疾病实验 · CellOracle</a><a href="#encoder">v1 · 归因与编码探索</a>
+    <a href="#gears">v2 · GEARS 与检验</a><a href="#cipher">v3 · CIPHER 与基线</a><a href="#gaps">待补材料</a>
+  </nav>
+
+  <section id="celloracle">
+    <div class="label">疾病实验支线 / 22q11.2 → Williams</div>
+    <h2>CellOracle：单基因调控扰动能否对应疾病差异？</h2>
+    <div class="columns">
+      <div><h3>当时的尝试</h3><p>先尝试 22q11.2 的 TBX1，再转向 Williams 脑类器官中的 GTF2I。历史复盘记载 TBX1 仅在 15/9293 个细胞中有表达，这是调整疾病与基因选择的背景；此数值来自报告，本面板未重读表达矩阵验证。</p></div>
+      <div><h3>保存结果说明什么</h3><p>将 GTF2I 敲低/过表达后的预测变化，与患者减对照的表达差异比较。整体秩相关很弱，未呈现当时期待的疾病复现/逆转模式；不能据此判定 CellOracle 普遍无效，也不能证明其他引擎更好。</p></div>
+    </div>
+    <div class="metric" id="wsMetric">Williams 指标等待读取；不是当前选中疾病的结果。</div>
+    <p class="muted">来源：results.npz；Spearman 在保存的全部基因上重新计算。脚本设置：hg38 promoter GRN（hg38_gimmemotifsv5_fpr2），按 cluster 拟合，alpha=10，传播 3 次；KO=0，OE=全体插补后 GTF2I 均值的 2 倍，不是逐细胞表达翻倍。</p>
+    <div class="pending">有数值，图片待补：可基于保存向量补 KO/OE 与疾病差异散点图。只有跨细胞汇总向量，不能据此重建逐细胞扰动轨迹或扰动后 UMAP。本次不生成替代历史图片。</div>
+    <div class="sources">历史材料：<a data-artifact="ws_result">Williams 数值结果</a> · <a data-artifact="ws_script">Williams 实验脚本</a> · <a data-artifact="tbx_script">22q 实验脚本</a> · <a data-artifact="ws_report">历史复盘（完整阅读版，历史解释待核）</a></div>
+  </section>
+
+  <section id="encoder">
+    <div class="label">工具 v1 / SCimilarity + 上游 SIGnature</div>
+    <h2>从归因排序，走到编码器敏感性探索</h2>
+    <p>早期用归因寻找影响模型表示的基因，再修改选定输入、观察重新编码后的位移。这个操作不模拟其余基因的调控响应，位移不是疗效，最近参考质心变化也不是细胞类型转化。</p>
+    <div class="metric" id="encoderMetric">PBMC 历史编码探索报告等待读取。</div>
+    <p class="muted">上述 PBMC 比较与下方 MS 图是不同实验。历史 AC1/AC2 的 pass 只代表当时设定的比较条件，不是科学有效性认证。</p>
+    <div class="notice">当前定位（CR-031）：保留代码与历史结果；交互入口默认折叠、标记“实验性”。脚本退出 0 只说明计算与报告写入完成；阴性结果不是程序故障，输入/计算/写入异常仍应报错。</div>
+    <figure data-image="ms_figure">
+      <p class="pending">正在核对 MS 归因存档图…</p>
+      <figcaption>MS 少突胶质细胞的历史嵌入与差异归因图。旧图“重要性↑/↓”是当时用语，不能据正负号认定生物学重要性增加/减少或主效基因；这里不是扰动后状态图。</figcaption>
+    </figure>
+    <div class="sources">历史材料：<a data-artifact="encoder_result">PBMC 编码探索报告</a> · <a data-artifact="ms_table">MS 差异归因表</a></div>
+  </section>
+
+  <section id="gears">
+    <div class="label">工具 v2 / 训练于扰动数据的预测路线</div>
+    <h2>GEARS：跑通预测，不等于验证了疾病候选基因</h2>
+    <p>曾尝试以 GEARS 预测补充编码器探索。当前实现加载 Norman/K562 预训练模型；候选基因覆盖和细胞背景限制，使它不能直接完成微缺失疾病候选基因的验证。网页保留为有限覆盖的负对照路线。</p>
+    <div class="metric" id="gearsMetric">CEBPA 历史结果等待读取。</div>
+    <div class="notice">旧图解释已修正：图中“34 倍位移”“互相印证、可指导靶点选择”不作为当前结论。不同细胞背景的位移不能直接比较；单个案例的表达相关性也不等于疾病效应或模型泛化验证。</div>
+    <figure data-image="gears_figure">
+      <p class="pending">正在核对 GEARS 存档图…</p>
+      <figcaption>CEBPA 历史原图，保留原始措辞以记录思路变化。请结合上方修正说明和迭代评审阅读；未重新运行 GEARS。</figcaption>
+    </figure>
+    <h3>随后检验：归因能否对应实际扰动效应？</h3>
+    <div class="metric" id="tier0Metric">Tier 0 历史指标等待读取。</div>
+    <p class="muted">Tier 0 报告的 cell_type 写为 A549；与其他 Norman/K562 记录的关系待核对，暂不归并为同背景比较。近零相关只表示该次检验未提供预期关联证据，不作普遍因果结论。</p>
+    <div class="pending">有数值，图片待补：Tier 0 保存了逐基因表和统计量，可后续补归因—效应对照图；先核对数据来源标签。</div>
+    <div class="sources">历史材料：<a data-artifact="gears_result">CEBPA 结果</a> · <a data-artifact="tier0_result">Tier 0 结果</a> · <a data-artifact="method_review">迭代评审与修正</a></div>
+  </section>
+
+  <section id="cipher">
+    <div class="label">工具 v3 / 当前交互主体</div>
+    <h2>CIPHER + 线性基线：把预测降为可检查的假设</h2>
+    <p>当前工具从选定数据集的对照表达估计线性响应，并展示基线对照。用途是提出机制假设、观察模型行为，不是经过验证的治疗预测；不能只因可运行或图形明显，就认定比 CellOracle/GEARS 更准确。</p>
+    <figure data-image="cipher_figure">
+      <p class="pending">正在核对 CIPHER 存档图…</p>
+      <figcaption>历史 PBMC / MS4A1 敲低与基线对照示例，固定来自 outputs/figures，不会随主页面疾病切换。图示仅为模型输出，不代表疾病疗效。</figcaption>
+    </figure>
+    <div class="sources">历史材料：<a data-artifact="cipher_result">MS4A1 示例摘要</a> · <a data-artifact="architecture">架构与引擎定位</a></div>
+  </section>
+
+  <section id="gaps">
+    <div class="label">材料清单 / 后续补全，不自动重跑</div>
+    <h2>还缺什么？</h2>
+    <ul>
+      <li>Williams CellOracle：已有汇总向量，缺对应图；当前导出目录缺当年的 processed.h5ad 与原始六样本。</li>
+      <li>22q/TBX1：有脚本、预处理矩阵和复盘描述，未找到对应结果 NPZ/图片；不能把报告数值标成此次复算结果。</li>
+      <li>PBMC 编码探索与 Tier 0：有报告，缺对应存档图。可后续从数据重绘并注明“基于历史数据补绘”；Tier 0 来源标签先核对。</li>
+      <li>当前按历史档案交付，暂不承诺一键重跑；展示现有结果不需要安装 CellOracle。完整复现仍需核对原始输入、依赖版本、调控网络/模型、参数与运行记录，不能把可读档案当作复现验收。</li>
+    </ul>
+    <p class="muted">各阶段的证据不是同一套受控 benchmark；转录组模型也不能直接证明 SINEUP 的翻译层干预效果。本次不修改历史文件、指标公式或科学门槛。</p>
+    <details><summary>查看材料路径与 SHA-256（当前文件校验，不证明当年的运行来源）</summary><div id="provenance"></div></details>
+  </section>
+</main>
+<script>
+const $ = id => document.getElementById(id);
+function metric(report, id, format) {
+  const target = $(id);
+  if (report.status !== "available") {
+    target.textContent = report.status === "missing" ? "材料缺失：未计算，不以零值代替。" : "材料读取或校验失败：请核对原始文件。";
+    return;
+  }
+  target.textContent = format(report.values);
+}
+async function loadHistory() {
+  $("reload").disabled = true;
+  $("archiveState").textContent = "正在核对本地历史材料…";
+  $("archiveState").dataset.error = "false";
+  for (const id of ["wsMetric", "encoderMetric", "gearsMetric", "tier0Metric"]) $(id).textContent = "等待核对；暂不展示上次指标。";
+  document.querySelectorAll("[data-artifact]").forEach(link => link.removeAttribute("href"));
+  document.querySelectorAll("[data-image]").forEach(figure => {
+    figure.querySelectorAll("a").forEach(link => link.remove());
+    figure.querySelector("p").textContent = "正在核对存档图…";
+  });
+  $("provenance").textContent = "";
+  const localFile = location.protocol === "file:";
+  $("fileHelp").hidden = !localFile;
+  try {
+    if (localFile) throw new Error("当前以本地文件方式打开，无法读取历史材料接口；这不代表图片丢失。请使用上方服务入口。");
+    const response = await fetch("/api/history"); // 不使用主界面的 ds 参数或推理接口。
+    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+    const archive = await response.json();
+    if (archive.read_only !== true || archive.dataset_independent !== true) throw new Error("历史接口身份不符");
+    const r = archive.results;
+    metric(r.ws_result, "wsMetric", v => `${v.n_genes} 个基因 · 保存向量复算\nKO 与疾病差异 Spearman ρ = ${v.ko_spearman.toFixed(4)}\nOE 与疾病差异 Spearman ρ = ${v.oe_spearman.toFixed(4)}`);
+    metric(r.encoder_result, "encoderMetric", v => `PBMC：${v.n_b_cells} 个 B 细胞，${v.n_random_sets} 组随机对照（读取历史报告）\nmarker 编码位移 = ${v.AC2_magnitude.marker_disp.toFixed(5)}；不是生物学效应量。`);
+    metric(r.gears_result, "gearsMetric", v => `${v.target} 案例：${v.n_real_kd_cells} 个实际扰动细胞\n预测与实测平均表达 Pearson r = ${v.pearson_all.toFixed(4)}（读取历史报告，非疾病逆转验证）`);
+    metric(r.tier0_result, "tier0Metric", v => `${v.n_valid_genes} 个基因（读取历史报告）\n归因与扰动效应 Spearman ρ = ${v.spearman_attr_effect.r.toFixed(4)}，p = ${v.spearman_attr_effect.p.toFixed(3)}`);
+    document.querySelectorAll("[data-artifact]").forEach(link => {
+      const a = archive.artifacts[link.dataset.artifact];
+      link.title = a.source;
+      if (a.status === "available") { link.href = a.url; link.target = "_blank"; link.rel = "noopener"; }
+      else link.title += "（材料缺失或不可读）";
+    });
+    document.querySelectorAll("[data-image]").forEach(figure => {
+      const a = archive.artifacts[figure.dataset.image], state = figure.querySelector("p");
+      if (a.status !== "available") { state.textContent = "图片缺失或不可读 · 待补，不以其他实验图片替代。"; return; }
+      const link = document.createElement("a"), img = document.createElement("img");
+      link.href = a.url; link.target = "_blank"; link.rel = "noopener";
+      img.alt = figure.querySelector("figcaption").textContent; img.loading = "lazy";
+      img.onload = () => { state.textContent = "已保存原图 · 点击查看大图"; };
+      img.onerror = () => { state.textContent = "图片加载失败 · 待核对原文件"; link.remove(); };
+      img.src = a.url; link.appendChild(img); figure.insertBefore(link, state);
+    });
+    for (const a of Object.values(archive.artifacts)) {
+      const p = document.createElement("p"), code = document.createElement("code");
+      code.textContent = `${a.source}\n${a.status === "available" ? "SHA-256: " + a.sha256 : "缺失或不可读"}`;
+      p.appendChild(code); $("provenance").appendChild(p);
+    }
+    $("archiveState").textContent = "只读材料已核对 · 数值复算/报告读取不等于重新运行实验 · 缺图项已单独标记";
+  } catch (error) {
+    $("archiveState").textContent = localFile ? error.message : `历史材料加载失败（${error.message}）。若服务仍是旧版，请重启后重新核对；下方仅保留说明，不代表数据已验证。`;
+    $("archiveState").dataset.error = "true";
+    for (const id of ["wsMetric", "encoderMetric", "gearsMetric", "tier0Metric"]) $(id).textContent = "历史材料未加载，暂无可核对指标。";
+    document.querySelectorAll("[data-artifact]").forEach(link => link.removeAttribute("href"));
+    document.querySelectorAll("[data-image] a").forEach(link => link.remove());
+    $("provenance").textContent = "";
+    document.querySelectorAll("[data-image] p").forEach(p => { p.textContent = localFile ? "图片尚未核对，请通过上方服务入口查看。" : "图片状态未核对，等待接口恢复。"; });
+  } finally { $("reload").disabled = localFile; }
+}
+$("reload").onclick = loadHistory;
+loadHistory();
+</script>
+</body>
+</html>

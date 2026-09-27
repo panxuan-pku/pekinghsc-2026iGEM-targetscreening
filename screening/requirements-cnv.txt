@@ -1,0 +1,6 @@
+# Optional single-cell/CNV dependencies; install alongside requirements.txt.
+scipy==1.17.1
+anndata==0.12.19
+matplotlib==3.11.1
+scanpy==1.11.5
+infercnvpy==0.6.1
