@@ -1,5 +1,7 @@
 # iGEM 2026: deletion-gene prioritization
 
+**English** | [简体中文](README.zh-CN.md)
+
 **Start with a deletion interval or a candidate gene list; obtain an evidence ranking and a design-check report.** The pipeline integrates ClinGen and gnomAD evidence, adds Open Targets (OT) disease annotations, and checks the project's **3′UTR ≥30 bp** and module-budget requirements.
 
 | Your starting point | Workflow |
@@ -13,13 +15,22 @@ The separate **VirtualCellTool (VCT)** explores expression changes using single-
 
 ## 1. Installation
 
-Use Terminal on macOS/Linux or a Conda-enabled terminal on Windows (for example, Miniforge Prompt). **Git and Conda must be available.** These commands are the same on all three systems:
+Use Terminal on macOS/Linux or a Conda-enabled terminal on Windows (for example, Miniforge Prompt). **Git and Conda must be available.** These commands are the same on all three systems. Lines starting with `#` explain each command; in Windows Miniforge Prompt (cmd.exe), copy only the command lines:
 
 ```text
+# Download the project from GitHub
 git clone https://github.com/panxuan-pku/pekinghsc-2026iGEM-targetscreening.git
+
+# Enter the repository root
 cd pekinghsc-2026iGEM-targetscreening
+
+# Create an isolated Conda environment with the basic screening dependencies
 conda env create --prefix ./workspace/envs/virtual-screening --file screening/environment.yml
+
+# Activate the screening environment for this terminal
 conda activate ./workspace/envs/virtual-screening
+
+# Check dependency declarations, installed versions and imports
 python -m screening.check --suite environment
 ```
 
@@ -34,6 +45,7 @@ This example uses the **ClinGen WHS reference interval ISCA-37429, GRCh38**. The
 Create `workspace/screening/input/raw/`. Download the [ClinGen GRCh38 region table](https://ftp.clinicalgenome.org/ClinGen_region_curation_list_GRCh38.tsv) into it, keeping the original filename. Check the interval against the [WHS record](https://search.clinicalgenome.org/kb/gene-dosage/region/ISCA-37429).
 
 ```text
+# Convert the ClinGen WHS region record to the interval input JSON
 python -m screening.prepare_input interval --input workspace/screening/input/raw/ClinGen_region_curation_list_GRCh38.tsv --format clingen-tsv --region-id ISCA-37429 --genome-build GRCh38 --source "https://search.clinicalgenome.org/kb/gene-dosage/region/ISCA-37429" --output workspace/screening/input/whs_interval_input.json
 ```
 
@@ -42,6 +54,7 @@ python -m screening.prepare_input interval --input workspace/screening/input/raw
 ### 2.2 Prepare references
 
 ```text
+# Download the five reference files, or verify and reuse existing files
 python -m screening.run prepare
 ```
 
@@ -58,6 +71,7 @@ The ClinGen **region table** in step 2.1 defines the input interval; the **gene 
 ### 2.3 Run screening
 
 ```text
+# Rank genes in the WHS interval and save reports in whs_interval_01
 python -m screening.run run --input-file workspace/screening/input/whs_interval_input.json --output workspace/screening/results/whs_interval_01
 ```
 
@@ -69,6 +83,7 @@ python -m screening.run run --input-file workspace/screening/input/whs_interval_
 Save a GRCh38 BED file as `workspace/screening/input/raw/deletion.bed` and replace step 2.1 with:
 
 ```text
+# Convert your GRCh38 BED interval to input JSON; replace the source placeholder
 python -m screening.prepare_input interval --input workspace/screening/input/raw/deletion.bed --format bed --genome-build GRCh38 --source "actual interval source" --output workspace/screening/input/deletion_interval_input.json
 ```
 
@@ -85,6 +100,7 @@ Use this route when you **already have a defined candidate set**. No deletion co
 Save your table as `workspace/screening/input/raw/genes.csv`, with one candidate per row. Keep its header and other columns. This example assumes a gene column named **`gene_id`**; replace `--gene-column` and `--source` with the actual column name and source URL or publication ID.
 
 ```text
+# Read candidate IDs from the gene_id column; replace the column and source as needed
 python -m screening.prepare_input genes --input workspace/screening/input/raw/genes.csv --format csv --gene-column gene_id --source "actual source URL or publication ID" --output workspace/screening/input/gene_list_input.json
 ```
 
@@ -96,6 +112,7 @@ python -m screening.prepare_input genes --input workspace/screening/input/raw/ge
 TXT files contain one gene per line with no header:
 
 ```text
+# Convert a one-gene-per-line TXT file to input JSON; replace the source placeholder
 python -m screening.prepare_input genes --input workspace/screening/input/raw/genes.txt --format txt --source "actual list source" --output workspace/screening/input/gene_list_input.json
 ```
 
@@ -109,6 +126,7 @@ For TSV, use the CSV command with your `.tsv` path, `--format tsv` and the actua
 After completing section 2, use this command instead of the CSV conversion above. It reads **all candidates**, not only the highest-ranked genes:
 
 ```text
+# Use all WHS candidates from the interval run to prepare a gene-list input
 python -m screening.prepare_input genes --input workspace/screening/results/whs_interval_01/interval_candidates.csv --format csv --gene-column gene_id --source "WHS ISCA-37429; whs_interval_01/interval_candidates.csv; see whs_interval_01/interval_manifest.json" --output workspace/screening/input/gene_list_input.json
 ```
 
@@ -119,6 +137,7 @@ Continue with steps 3.2 and 3.3. This demonstrates another input route for the s
 ### 3.2 Prepare references
 
 ```text
+# Verify and reuse the shared references, downloading any missing files
 python -m screening.run prepare
 ```
 
@@ -127,6 +146,7 @@ python -m screening.run prepare
 ### 3.3 Run screening
 
 ```text
+# Rank the submitted gene list and save reports in gene_list_01
 python -m screening.run run --input-file workspace/screening/input/gene_list_input.json --output workspace/screening/results/gene_list_01
 ```
 
@@ -161,6 +181,7 @@ Both result tables preserve the same candidates, ranks and scores. **The score i
 Set **`--output "directory"`** on the `run` command:
 
 ```text
+# Save this run in a custom output directory that does not yet exist
 python -m screening.run run --input-file workspace/screening/input/gene_list_input.json --output "workspace/screening/results/gene_list_02"
 ```
 
@@ -195,8 +216,13 @@ Basic screening only needs section 1. VCT has a **separate environment**, includ
 | Development | Commands below; not required for users |
 
 ```text
+# Install optional developer test dependencies
 python -m pip install -r screening/requirements-dev.txt
+
+# Run the core screening tests without downloading references
 python -m screening.check --suite core
+
+# Check release files for bundled data, models and broken local documentation links
 python tests/check_release.py
 ```
 
@@ -205,9 +231,10 @@ Expected: **`[OK] Checks passed (core)`** and **`Release check passed`**. Run VC
 ## 7. Repository structure
 
 ```text
-pekinghsc-2026iGEM-targetscreening/
+pekinghsc-2026iGEM-targetscreening/  # Repository root
 ├── README.md                 # Start here: two screening input routes
-├── screening/
+├── README.zh-CN.md           # Simplified Chinese guide
+├── screening/                # Gene-prioritization pipeline
 │   ├── prepare_input.py      # Downloaded table → typed input JSON
 │   ├── run.py                # Reference preparation and screening
 │   ├── report.py             # English HTML reports
@@ -215,7 +242,7 @@ pekinghsc-2026iGEM-targetscreening/
 │   ├── config/               # screening.yaml is the current profile
 │   ├── src/                  # Evidence, ranking and optional analyses
 │   └── environment.yml       # Basic Conda environment
-├── vct/
+├── vct/                      # VirtualCellTool
 │   ├── src/                  # Data preparation and perturbation engines
 │   ├── web/                  # Interactive local application
 │   ├── analysis/             # Optional research analyses

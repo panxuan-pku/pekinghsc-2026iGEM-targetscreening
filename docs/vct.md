@@ -1,5 +1,7 @@
 # VirtualCellTool: local interactive demo
 
+**English** | [简体中文：运行与独立测试](vct.zh-CN.md)
+
 VCT is separate from the screening score. **Start with public PBMC3k data to check the tool**, then prepare an appropriate disease dataset for research. The PBMC demonstration is not a WHS experiment.
 
 ## 1. Install a separate environment
