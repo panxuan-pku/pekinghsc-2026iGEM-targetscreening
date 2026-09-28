@@ -42,7 +42,14 @@ python -m screening.check --suite environment
 
 ### 2.1 准备输入
 
-创建 `workspace/screening/input/raw/` 文件夹，将 [ClinGen GRCh38 区间表](https://ftp.clinicalgenome.org/ClinGen_region_curation_list_GRCh38.tsv) 下载到其中，保留原文件名。可通过 [WHS 记录](https://search.clinicalgenome.org/kb/gene-dosage/region/ISCA-37429)核对区间。
+用下面一条命令下载 [ClinGen GRCh38 区间表](https://ftp.clinicalgenome.org/ClinGen_region_curation_list_GRCh38.tsv)。程序会自动创建 `workspace/screening/input/raw/`，已有的非空文件会保留，不会覆盖。
+
+```text
+# 自动创建输入目录并下载 WHS 示例的原始区间表
+python -m screening.download
+```
+
+**预期输出：** `[OK] Example download complete` 及文件路径；文件已存在时会提示保留。这一步只下载原始表，接下来提取 [WHS 记录](https://search.clinicalgenome.org/kb/gene-dosage/region/ISCA-37429)并转换为管线输入：
 
 ```text
 # 将 ClinGen 的 WHS 区间记录转换为区间输入 JSON

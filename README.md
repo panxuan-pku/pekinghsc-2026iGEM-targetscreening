@@ -42,7 +42,14 @@ This example uses the **ClinGen WHS reference interval ISCA-37429, GRCh38**. The
 
 ### 2.1 Prepare the input
 
-Create `workspace/screening/input/raw/`. Download the [ClinGen GRCh38 region table](https://ftp.clinicalgenome.org/ClinGen_region_curation_list_GRCh38.tsv) into it, keeping the original filename. Check the interval against the [WHS record](https://search.clinicalgenome.org/kb/gene-dosage/region/ISCA-37429).
+Download the [ClinGen GRCh38 region table](https://ftp.clinicalgenome.org/ClinGen_region_curation_list_GRCh38.tsv) with one command. It creates `workspace/screening/input/raw/` automatically and keeps any existing nonempty file unchanged.
+
+```text
+# Create the input directory and download the WHS example source table
+python -m screening.download
+```
+
+**Expected:** `[OK] Example download complete` and the file path; an existing file is reported as kept unchanged. This downloads the raw table only. Next, select the [WHS record](https://search.clinicalgenome.org/kb/gene-dosage/region/ISCA-37429) and convert it to the pipeline input:
 
 ```text
 # Convert the ClinGen WHS region record to the interval input JSON

@@ -41,3 +41,39 @@ def download(url, path, *, progress=False):
                 raise
             print(f"[WARN] Retrying download {attempt + 1}/2: {path.name}", flush=True)
             time.sleep(2)
+
+
+def main(argv=None):
+    """Download the raw ClinGen table for the WHS example; do not run screening."""
+    import argparse
+    from pathlib import Path
+    import requests
+
+    parser = argparse.ArgumentParser(description=main.__doc__)
+    parser.add_argument("--output-dir", type=Path,
+                        default=Path(__file__).resolve().parents[1] / "workspace/screening/input/raw",
+                        help="directory for the raw example table (default: repository/workspace/screening/input/raw)")
+    args = parser.parse_args(argv)
+    name = "ClinGen_region_curation_list_GRCh38.tsv"
+    url = f"https://ftp.clinicalgenome.org/{name}"
+    path = args.output_dir.resolve() / name
+    try:
+        path.parent.mkdir(parents=True, exist_ok=True)
+        if path.exists():
+            if not path.is_file() or path.stat().st_size == 0:
+                raise ValueError(f"existing input is not a nonempty file: {path}")
+            print("[OK] Existing example input kept unchanged; format checks run during input preparation.")
+        else:
+            print(f"[INFO] Downloading WHS example source: {url}", flush=True)
+            record = download(url, path, progress=True)
+            print(f"[OK] Example download complete ({record['bytes']} bytes)")
+            print(f"  SHA256: {record['sha256']}")
+        print(f"  Input table: {path}")
+        print("  Next: run screening.prepare_input interval to select WHS record ISCA-37429.")
+        return 0
+    except (OSError, ValueError, requests.RequestException) as exc:
+        parser.exit(1, f"[FAIL] Example download stopped: {exc}\n")
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())
