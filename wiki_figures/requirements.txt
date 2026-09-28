@@ -1,0 +1,3 @@
+# Optional figure-authoring dependencies; not needed to run screening.
+matplotlib>=3.8,<4
+seaborn>=0.13,<0.14

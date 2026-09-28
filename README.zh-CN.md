@@ -251,10 +251,19 @@ pekinghsc-2026iGEM-targetscreening/  # 仓库根目录
 ├── tests/                    # 筛选、VCT 和发布检查
 ├── docs/                     # 方法、VCT 指南和第三方来源说明
 ├── examples/                 # 示例来源和复现说明
+├── wiki_figures/             # 绘图源码和本地待上传图片
+│   ├── generate_model.py     # 总览、已核验的 WHS 得分贡献、设计检查
+│   ├── model/               # 本地 SVG/PNG 图片及数据来源记录
+│   ├── document/            # 预留：使用指南配图
+│   ├── tool/                # 预留：工具配图
+│   └── engineering/         # 预留：DBTL 配图
+├── .archify/                 # 本地生成的代码流程图及审阅产物
 └── workspace/                # 仅本地保存：环境、数据、模型和结果
 ```
 
 仓库不包含历史疾病研究目录或预置结果。`workspace/` 在本地创建，并被 Git 忽略。较早的 `screening/config/pipeline.yaml` 和 CNV 配置用于可选分析及回归测试；**上述流程通过 `python -m screening.run` 使用 `screening/config/screening.yaml`**。
+
+Wiki 配图见[绘图说明](wiki_figures/README.md)。绘图源码和目录占位文件可纳入版本管理；生成的 SVG/PNG、预览页和运行来源记录仅保留在本地，并被 Git 忽略。确认图片后，上传到 iGEM 静态资源平台，再由 Wiki 引用。`.archify/` 保存本地生成的交互式代码流程图及审阅产物，同样被 Git 忽略，不是程序运行依赖。Wiki 单独维护，这两个目录都不会自动更新网页正文。
 
 ## 许可证与来源
 

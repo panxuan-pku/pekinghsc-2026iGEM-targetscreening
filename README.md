@@ -251,10 +251,19 @@ pekinghsc-2026iGEM-targetscreening/  # Repository root
 ├── tests/                    # screening/, vct/ and release checks
 ├── docs/                     # Methods, VCT guide and third-party attribution
 ├── examples/                 # Example sources and reproduction notes
+├── wiki_figures/             # Figure source scripts and local upload staging
+│   ├── generate_model.py     # Workflow, verified WHS contributions, design checks
+│   ├── model/               # Local SVG/PNG exports and source provenance
+│   ├── document/            # Reserved: usage-guide figures
+│   ├── tool/                # Reserved: tool figures
+│   └── engineering/         # Reserved: DBTL figures
+├── .archify/                 # Local generated code-flow diagrams and reviews
 └── workspace/                # Local only: environments, data, models, results
 ```
 
 There are no historical disease directories or bundled results. `workspace/` is created locally and ignored by Git. The older `screening/config/pipeline.yaml` and CNV configuration support optional analysis and regression tests; **use `screening/config/screening.yaml` through `python -m screening.run` for the workflow above**.
+
+For Wiki artwork, see the [figure guide](wiki_figures/README.md). The scripts and directory placeholders can be versioned; generated SVG/PNG files, the local preview gallery and source-run provenance are ignored. Upload approved figures to iGEM static hosting before referencing them from the Wiki. `.archify/` holds locally generated interactive code-flow diagrams and review artifacts; it is also ignored and is not a runtime dependency. The Wiki is maintained separately; neither folder automatically updates its pages.
 
 ## License and sources
 

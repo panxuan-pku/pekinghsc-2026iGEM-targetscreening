@@ -28,3 +28,10 @@ htmlcov/
 *.bgz
 *.zip
 *.tar
+
+# Local Wiki artwork: upload reviewed exports to iGEM static hosting.
+/.archify/
+/wiki_figures/*/*.svg
+/wiki_figures/*/*.png
+/wiki_figures/index.html
+/wiki_figures/model/provenance.json
